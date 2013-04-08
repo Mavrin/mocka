@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import org.scaloid.common._
 
 class Mockup extends Model {
-  val title = StringField("title", "TEXT")
+  val title = StringField("title")
 }
 
 class MockupImage extends Model {

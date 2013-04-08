@@ -65,11 +65,12 @@ class MockupListActivity extends SActivity with TypedActivity {
     startLoading
 
     // Load the things
-    val all = future { db.all[Mockup] }
+    future { db.all[Mockup] } onComplete {
 
-    // Display something when an exception occurs
-    all onComplete {
+      // Say something in case of a failure
       case Failure(e) => error(s"Exception occured in future: ${e.toString}")
+
+      // Update the view in case of a success
       case Success(c) => runOnUiThread {
 
         // Tell the user

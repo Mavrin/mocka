@@ -1,9 +1,7 @@
 package com.github.fxthomas.mocka
 
-import android.os.Bundle
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 
 import org.scaloid.common._
 

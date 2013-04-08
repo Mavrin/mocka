@@ -9,7 +9,7 @@ import org.scaloid.common._
 
 import scala.reflect.{ClassTag,classTag}
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.MutableList
 
 abstract class Field[T](val sqlName: String, val sqlType: String)(implicit val model: Model) {
 
@@ -17,7 +17,7 @@ abstract class Field[T](val sqlName: String, val sqlType: String)(implicit val m
   var value: Option[T] = None
 
   // Update model
-  model.fields(sqlName) = this
+  model.fields += this
 
   // Store something inside the field
   def :=(v: T) = { value = Some(v) }
@@ -80,7 +80,7 @@ extends Field[java.lang.Long](sqlName, sqlType) {
 trait Model {
 
   // List of fields
-  val fields = MutableMap[String, Field[_]]()
+  val fields = MutableList[Field[_]]()
 
   // Table name
   val tableName = this.getClass.getName.replace(".","_").replace("$","__")
@@ -100,7 +100,7 @@ trait Model {
     val cv = new ContentValues
 
     // Put the fields
-    for (f <- fields.values) f >> cv
+    for (f <- fields) f >> cv
 
     // Save into the DB
     id.value match {
@@ -128,15 +128,15 @@ trait Model {
   }
 
   // Fill a model from a Cursor
-  def <<(c: Cursor) = for (f <- fields.values) f << c
+  def <<(c: Cursor) = for (f <- fields) f << c
 
-  // Returns a map of the values inside the field
-  def asMap = fields flatMap { f =>
-    f._2.value match {
-      case Some(v) => Some(f._1,v)
-      case _ => None
+  // Returns a map of the values inside the fields
+  def asMap = fields. flatMap(f =>
+    f.value match {
+      case Some(v) => Some(f.sqlName, v)
+      case None => None
     }
-  }
+  ).toMap
 }
 
 trait SOpenHelper {
@@ -174,7 +174,7 @@ trait SOpenHelper {
     val dummy = create[M]
 
     // Read all the fieldz!
-    val schema = dummy.fields.values map
+    val schema = dummy.fields map
       { f => f.sqlName + " " + f.sqlType }
 
     // Create the schema string
@@ -220,9 +220,9 @@ trait SOpenHelper {
     q.moveToFirst
 
     // Get all the elements inside the cursor and make a list
-    (0 to q.getCount-1) map { p =>
+    (0 to q.getCount-1).map { p =>
       q moveToPosition p
       fromCursor[M](q)
-    } toList
+    }.toList
   }
 }

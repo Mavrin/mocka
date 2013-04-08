@@ -10,7 +10,7 @@ object General {
     name := "Mocka",
     version := "0.1",
     versionCode := 0,
-    scalaVersion := "2.10.0",
+    scalaVersion := "2.10.1",
     platformName in Android := "android-16",
     keyalias in Android := "change-me"
   )
@@ -32,7 +32,6 @@ object General {
   // Library dependencies
   lazy val librarySettings = Seq(
     libraryDependencies ++= Seq(
-      "org.scala-lang" % "scala-reflect" % "2.10.0",
       "org.scalatest" %% "scalatest" % "1.9.1" % "test",
       "org.scaloid" % "scaloid" % "1.1_8_2.10"
     )

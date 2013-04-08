@@ -23,6 +23,6 @@
         <activity android:name=".MockupActivity">
         </activity>
 
-        <uses-library android:name="scala-library-2.10.0" android:required="true"/>
+        <uses-library android:name="scala-library-2.10.1" android:required="true"/>
     </application>
 </manifest>

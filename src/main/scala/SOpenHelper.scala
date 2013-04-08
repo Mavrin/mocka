@@ -126,6 +126,14 @@ trait Model {
       }
     }
   }
+
+  // Returns a map of the values inside the field
+  def asMap = fields flatMap { f =>
+    f._2.value match {
+      case Some(v) => Some(f._1,v)
+      case _ => None
+    }
+  }
 }
 
 trait SOpenHelper {
@@ -174,33 +182,41 @@ trait SOpenHelper {
     db.execSQL(s"CREATE TABLE `$schemaName` ($schemaString);")
   }
 
-  // Retrieve all the elements in DB
-  def all[M <: Model : ClassTag] = {
-    // Create a dummy object with empty fields
+  // Run a query
+  def query[M <: Model : ClassTag]
+  (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, limit: String = null) = {
+
+    // Create a dummy object with empty field
     val dummy = create[M]
     val table = dummy.tableName
 
     // Execute query
-    val q = ro.query(true, table, null, null, null, null, null, null, null)
-
-    // Read data
-    (0 to q.getCount-1) map { p =>
-      q moveToPosition p
-      fromCursor[M](q)
-    } toList
+    ro.query(
+      true,
+      dummy.tableName,
+      fields map { _.sqlName},
+      selection,
+      selectionArgs,
+      null,
+      null,
+      null,
+      limit
+    )
   }
 
+  // Retrieve all the elements in DB
+  def all[M <: Model : ClassTag] = query[M]()
+
   // Find all model objects that satisfy a condition
-  def findBy[M <: Model : ClassTag, T](f: String, value: T) = {
-    // Create a dummy object with empty fields
-    val dummy = create[M]
-    val table = dummy.tableName
-    val field = dummy.fields(f)
+  def findBy[M <: Model : ClassTag, T](f: String, value: T) =
+    query[M](null, s"$f = ?", Array(value.toString))
 
-    // Execute query
-    val q = ro.query(true, table, null, s"$f = ?", Array(value.toString), null, null, null, null)
+  // Retrieve all the elements inside a cursor
+  def retrieve[M <: Model : ClassTag](q: Cursor) = {
+    // Move the Cursor to the first position
+    q.moveToFirst
 
-    // Read data
+    // Get all the elements inside the cursor and make a list
     (0 to q.getCount-1) map { p =>
       q moveToPosition p
       fromCursor[M](q)

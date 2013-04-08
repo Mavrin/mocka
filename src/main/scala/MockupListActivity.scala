@@ -31,7 +31,7 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     // Disable the progress bar on success
     all onSuccess {
-      case all_list: List[Mockup] => runOnUiThread {
+      case als: List[_] => runOnUiThread {
         progressBar.setVisibility(View.GONE)
       }
     }

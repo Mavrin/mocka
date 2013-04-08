@@ -127,6 +127,9 @@ trait Model {
     }
   }
 
+  // Fill a model from a Cursor
+  def <<(c: Cursor) = for (f <- fields.values) f << c
+
   // Returns a map of the values inside the field
   def asMap = fields flatMap { f =>
     f._2.value match {
@@ -160,7 +163,7 @@ trait SOpenHelper {
     val model = create[M]
 
     // Fill the model
-    for (f <- model.fields.values) f << c
+    model << c
 
     // Return that model
     return model

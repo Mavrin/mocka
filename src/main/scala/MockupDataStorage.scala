@@ -18,8 +18,7 @@ class MockupImage extends Model {
 }
 
 class MockupOpenHelper(implicit ctx: Context)
-extends SQLiteOpenHelper(ctx, "mockups", null, 1)
-with SOpenHelper {
+extends SSQLiteOpenHelper("mockups", 1) {
 
   // Create the database
   override def onCreate(db: SQLiteDatabase) {

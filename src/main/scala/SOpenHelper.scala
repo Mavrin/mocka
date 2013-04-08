@@ -1,8 +1,10 @@
 package com.github.fxthomas.mocka
 
 import android.content.ContentValues
+import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.database.DatabaseErrorHandler
 import android.database.Cursor
 
 import org.scaloid.common._
@@ -95,7 +97,7 @@ trait Model {
   val id = LongField("id", "INTEGER PRIMARY KEY AUTOINCREMENT")
 
   // Save model object
-  def save(implicit db: SOpenHelper): Long = {
+  def save(implicit db: SSQLiteOpenHelper): Long = {
     // Create ContentValues
     val cv = new ContentValues
 
@@ -139,9 +141,13 @@ trait Model {
   ).toMap
 }
 
-trait SOpenHelper {
-  // Restrict use for SQLiteOpenHelper objects
-  this: SQLiteOpenHelper =>
+abstract class SSQLiteOpenHelper(
+  name: String,
+  version: Int,
+  factory: SQLiteDatabase.CursorFactory = null,
+  errorHandler: DatabaseErrorHandler = null)
+  (implicit ctx: Context)
+extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
   // Table name
   val helperName = this.getClass.getName.replace(".","_").replace("$","__")

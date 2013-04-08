@@ -94,7 +94,7 @@ trait Model {
   implicit val model = this
 
   // Create primary key
-  val id = LongField("id", "INTEGER PRIMARY KEY AUTOINCREMENT")
+  val id = LongField("_id", "INTEGER PRIMARY KEY AUTOINCREMENT")
 
   // Save model object
   def save(implicit db: SSQLiteOpenHelper): Long = {
@@ -102,20 +102,20 @@ trait Model {
     val cv = new ContentValues
 
     // Put the fields
-    for (f <- fields) f >> cv
+    this >> cv
 
     // Save into the DB
     id.value match {
       case Some(i) => {
         // Update the element
-        db.rw.update(tableName, cv, "id = ?", Array(i.toString))
+        db.rw.update(tableName, cv, "_id = ?", Array(i.toString))
 
         // Return the ID
         return i
       }
       case None => {
         // Try to insert the element
-        val newid = db.rw.insert(tableName, "id", cv)
+        val newid = db.rw.insert(tableName, "_id", cv)
 
         // If it fails, say something
         if (newid == -1) warn(s"Unable to save $tableName object")
@@ -131,6 +131,9 @@ trait Model {
 
   // Fill a model from a Cursor
   def <<(c: Cursor) = for (f <- fields) f << c
+
+  // Fill a ContentValues object with the model
+  def >>(cv: ContentValues) = for (f <- fields) f >> cv
 
   // Returns a map of the values inside the fields
   def asMap = fields. flatMap(f =>
@@ -198,12 +201,13 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     // Create a dummy object with empty field
     val dummy = create[M]
     val table = dummy.tableName
+    val fieldOpt = if (fields != null) fields map { _.sqlName } else null
 
     // Execute query
     ro.query(
       true,
       dummy.tableName,
-      fields map { _.sqlName},
+      fieldOpt,
       selection,
       selectionArgs,
       null,

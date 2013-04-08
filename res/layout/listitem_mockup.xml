@@ -7,14 +7,17 @@
 
        <ImageView
          android:id="@+id/preview"
-         android:layout_width="48dp"
-         android:layout_height="48dp"
+         android:layout_width="72dp"
+         android:layout_height="72dp"
          android:background="#aaa" />
 
        <TextView
          android:id="@+id/title"
          android:layout_width="0dp"
-         android:layout_height="48dp"
-         android:layout_weight="1.0" />
+         android:layout_height="72dp"
+         android:layout_weight="1.0"
+         android:layout_marginLeft="5dp"
+         android:gravity="center_vertical"
+         android:textSize="24dp" />
 
 </LinearLayout>

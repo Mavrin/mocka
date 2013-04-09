@@ -10,13 +10,14 @@ class Mockup extends Model {
 }
 
 class MockupImage extends Model {
-  val mockup_id = IntField("mockup_id")
+  val mockup_id = LongField("mockup_id")
   val image_order = IntField("image_order")
   val uri = StringField("uri")
 }
 
 class MockupOpenHelper(implicit ctx: Context)
 extends SSQLiteOpenHelper("mockups", 1) {
+
 
   // Create the database
   override def onCreate(db: SQLiteDatabase) {

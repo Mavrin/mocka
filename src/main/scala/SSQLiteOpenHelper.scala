@@ -196,7 +196,7 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
   // Run a query
   def query[M <: Model : ClassTag]
-  (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, limit: String = null) = {
+  (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
 
     // Create a dummy object with empty field
     val dummy = create[M]
@@ -212,7 +212,7 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
       selectionArgs,
       null,
       null,
-      null,
+      orderBy,
       limit
     )
   }
@@ -221,8 +221,12 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
   def all[M <: Model : ClassTag] = query[M]()
 
   // Find all model objects that satisfy a condition
-  def findBy[M <: Model : ClassTag, T](f: String, value: T) =
-    query[M](null, s"$f = ?", Array(value.toString))
+  def findBy[M <: Model : ClassTag, T](f: String, value: T, orderBy: String = null) =
+    query[M](null, s"$f = ?", Array(value.toString), orderBy)
+
+  // Find a model by ID
+  def findById[M <: Model : ClassTag](cid: Long, orderBy: String = null) =
+    query[M](null, s"_id = ?", Array(cid.toString), orderBy)
 
   // Retrieve all the elements inside a cursor
   def retrieve[M <: Model : ClassTag](q: Cursor) = {

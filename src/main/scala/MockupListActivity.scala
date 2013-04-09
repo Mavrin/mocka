@@ -1,6 +1,7 @@
 package com.github.fxthomas.mocka
 
 import android.app.Activity
+import android.app.ProgressDialog
 import android.os.Bundle
 import android.view.View
 import android.view.Menu
@@ -10,7 +11,6 @@ import android.view.MenuItem
 import android.view.ViewGroup
 import android.view.Window
 import android.view.Gravity
-import android.widget.ArrayAdapter
 import android.widget.ProgressBar
 import android.widget.ListView
 import android.widget.TextView
@@ -26,7 +26,7 @@ import ExecutionContext.Implicits.global
 
 import org.scaloid.common._
 
-class MockupListAdapter(cursor: Cursor)(implicit ctx: Context)
+class MockupListAdapter(cursor: Cursor)(listener: Mockup => Unit)(implicit ctx: Context)
 extends CursorAdapter(ctx, cursor, 0) {
 
   // UI Inflater
@@ -46,6 +46,9 @@ extends CursorAdapter(ctx, cursor, 0) {
 
     // Fill the view
     for (t <- m.title.value) titleView setText t
+
+    // Set onClick
+    v onClick listener(m)
   }
 
   // Load a new view
@@ -60,18 +63,36 @@ class MockupListActivity extends SActivity with TypedActivity {
   var listViewAdapter: Option[MockupListAdapter] = None
   var menuItemNew: Option[MenuItem] = None
 
+  def runIndeterminate[T](title: String, message: String)(work: =>T)
+  (implicit ctx: Context): Future[T] = {
+
+    // Create a progress dialog
+    val spinner = new ProgressDialog(ctx)
+    spinner setTitle title
+    spinner setMessage message
+    spinner setIndeterminate true
+
+    // Show it
+    runOnUiThread { spinner.show }
+
+    // Push it baby!
+    val value = future { work }
+
+    // Dismiss the spinner on completion
+    value onComplete { case _ => runOnUiThread { spinner.dismiss } }
+    value onFailure { case e => e.printStackTrace }
+
+    // Return what we did
+    return value
+  }
+
   def reload = {
-    // Set the progress bar to visible
-    startLoading
-
     // Load the things
-    future { db.all[Mockup] } onComplete {
+    val f = runIndeterminate("Mocka", "Reading your awesome mockups!")
+      { db.all[Mockup] } 
 
-      // Say something in case of a failure
-      case Failure(e) => error(s"Exception occured in future: ${e.toString}")
-
-      // Update the view in case of a success
-      case Success(c) => runOnUiThread {
+    // Update the view in case of a success
+    f onSuccess { case c => runOnUiThread {
 
         // Tell the user
         info("Finished loading mockups")
@@ -81,7 +102,7 @@ class MockupListActivity extends SActivity with TypedActivity {
           case Some(la) => la changeCursor c
           case None => {
             // Create a new list adapter
-            val la = new MockupListAdapter(c)
+            val la = new MockupListAdapter(c)(showMockup _)
 
             // Update the list
             listView setAdapter la
@@ -90,11 +111,16 @@ class MockupListActivity extends SActivity with TypedActivity {
             listViewAdapter = Some(la)
           }
         }
-
-        // Hide the progress bar
-        stopLoading
       }
     }
+  }
+
+  def showMockup(m: Mockup) = {
+    // Start the activity
+    val intent = SIntent[MockupActivity]
+    for (id <- m.id.value) intent.putExtra(MockupActivity.MOCKUP_ID, id)
+    for (title <- m.title.value) intent.putExtra(MockupActivity.MOCKUP_TITLE, title)
+    startActivity(intent)
   }
 
   def startLoading = {
@@ -147,15 +173,16 @@ class MockupListActivity extends SActivity with TypedActivity {
 
       // Save the mockup
       future { mockup.save } onComplete {
-        case Failure(f) => error(s"Unable to save mockup: ${f.toString}")
+        case Failure(f) => f.printStackTrace
         case Success(id) => runOnUiThread {
+          // Log info
+          info(s"Created item $id")
+
           // Set the menu item to enabled again
           item setEnabled true
 
-          // Start the activity
-          val intent = SIntent[MockupActivity]
-          intent.putExtra(MockupActivity.MOCKUP_ID, id)
-          startActivity(intent)
+          // Show mockup
+          showMockup(mockup)
         }
       }
 

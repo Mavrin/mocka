@@ -161,7 +161,7 @@ class MockupActivity extends SActivity with TypedActivity {
   }
 
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
-    getMenuInflater.inflate(R.menu.ui_mockuplist, menu)
+    getMenuInflater.inflate(R.menu.ui_mockupimage, menu)
     return true
   }
 

@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Mocka</string>
     <string name="ui_new">Create new</string>
+    <string name="ui_play">Start mockup</string>
 </resources>

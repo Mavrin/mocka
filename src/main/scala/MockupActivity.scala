@@ -17,7 +17,6 @@ import android.database.Cursor
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.LruCache
 
 import scala.concurrent._
 import scala.util.{Failure, Success}
@@ -27,133 +26,97 @@ import BitmapHelpers._
 
 import org.scaloid.common._
 
-class MockupImagesAdapter(cursor: Cursor)(implicit ctx: Context)
-extends CursorAdapter(ctx, cursor, 0) {
-
-  // UI Inflater
-  val inflater = LayoutInflater from ctx
-
-  // LRU cache
-  val lru = new LruCache[String, Bitmap](15)
-
-  // Load an existing view from a cursor
-  override def bindView(v: View, lctx: Context, c: Cursor) = {
-
-    // Create a new mockup object
-    val mi = new MockupImage
-
-    // Load it with the contents of the cursor
-    mi << c
-
-    // Find the text view
-    val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
-    val imageView = v.findViewById(R.id.image).asInstanceOf[ImageView]
-
-    // Set the title
-    for (t <- mi.image_order.value) titleView setText s"Slide ${t.toString}"
-
-    // Set the image
-    mi.uri.value match {
-      case Some(uri) => {
-        // Try to retrieve the imag from the LRU cache
-        val img = lru get uri
-
-        // If it was retrieved, use it
-        if (img != null) imageView setImageBitmap img
-
-        // If not, load it and put it in the cache
-        else future { loadBitmap(uri) } collect {
-          case Some(b) => {
-            // Put the image in the cache
-            lru synchronized { lru.put (uri, b) }
-
-            // Put the image in the ImageView
-            runOnUiThread { imageView setImageBitmap b }
-          }
-        }
-      }
-
-      case None => imageView setImageBitmap null
-    }
-  }
-
-  // Load a new view
-  override def newView(lctx: Context, c: Cursor, parent: ViewGroup) =
-    inflater.inflate (R.layout.listitem_mockupimage, parent, false)
-}
-
 class MockupActivity extends SActivity with TypedActivity {
   import MockupActivity._
 
+  // Retrieve the mockup ID and title
   def mockup_id = getIntent.getLongExtra(MOCKUP_ID, 0)
+  def mockup_title = getIntent.getStringExtra(MOCKUP_TITLE)
 
+  // Default database
   lazy implicit val db = new MockupOpenHelper
+
+  // List view holding the mockup images
   lazy val listView = findView(TR.screens)
 
-  var listViewAdapter: Option[MockupImagesAdapter] = None
-  var menuItemNew: Option[MenuItem] = None
-  var mockup_title: Option[String] = None
+  // Show a mockup image
+  def showImage(m: MockupImage) = ()
 
-  def reload = {
-    // Set the progress bar to visible
-    startLoading
+  // List view adapter
+  object adapter
+  extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage, showImage _) {
+    val lru = new SLruCache[String, Bitmap](15)
 
-    // Load the things
-    future { db.findBy[MockupImage, Long]("mockup_id", mockup_id, "image_order") } onComplete {
+    override def query =
+      db.findBy[MockupImage, Long]("mockup_id", mockup_id, "image_order")
 
-      // Say something in case of a failure
-      case Failure(e) => error(s"Exception occured in future: ${e.toString}")
+    def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
+      // If the view tag is null, return immediately
+      if (iv.getTag != null) {
 
-      // Update the view in case of a success
-      case Success(c) => runOnUiThread {
+        // Check if the tag's URI is equal to the bitmap's URI
+        iv.getTag.asInstanceOf[Option[String]] match {
 
-        // Tell the user
-        info("Finished loading mockup images")
-
-        // Load the list
-        listViewAdapter match {
-          case Some(la) => la changeCursor c
-          case None => {
-            // Create a new list adapter
-            val la = new MockupImagesAdapter(c)
-
-            // Update the list
-            listView setAdapter la
-
-            // And update the list adapter parameter
-            listViewAdapter = Some(la)
+          // If the tag is right, change the image
+          case Some(uriTag) if uriTag == uri => runOnUiThread {
+            bmp match {
+              case Some(b) => iv setImageBitmap b
+              case None => iv setImageBitmap null
+            }
           }
-        }
 
-        // Hide the progress bar
-        stopLoading
+          // Do nothing if the tag is not right
+          case _ => ()
+        }
       }
+
+    def update(v: View, context: Context, mi: MockupImage) {
+
+      // Find the text view
+      val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
+      val imageView = v.findViewById(R.id.image).asInstanceOf[ImageView]
+
+      // Tag the view with the current mockup image URI
+      imageView setTag mi.uri.value
+      imageView setImageBitmap null
+
+      // Set the title
+      for (t <- mi.image_order.value) titleView setText s"Slide ${t.toString}"
+
+      // Set the image
+      for (uri <- mi.uri.value)
+        lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
     }
   }
 
-  def startLoading = {
-    runOnUiThread { setProgressBarIndeterminateVisibility(true) }
+  // Reload the mockups
+  def reload = {
+    // Start the loading spinner
+    runOnUiThread { startLoading }
+
+    // Reload things
+    adapter.reload
+
+    // Stop the loading spinner when it's done
+    .onComplete { case _ => runOnUiThread { stopLoading } }
   }
 
-  def stopLoading = {
-    runOnUiThread { setProgressBarIndeterminateVisibility(false) }
-  }
+  // Start and stop the loading Window spinner
+  def startLoading = setProgressBarIndeterminateVisibility(true)
+  def stopLoading = setProgressBarIndeterminateVisibility(false)
 
   override def onCreate(bundle: Bundle) = {
     // Load UI
     super.onCreate(bundle)
 
-    // Load intents
-    mockup_title = Option(getIntent getStringExtra MOCKUP_TITLE)
-
     // Setup the UI
     this requestWindowFeature Window.FEATURE_INDETERMINATE_PROGRESS
     this setContentView R.layout.ui_mockup
-    this setTitle (mockup_title getOrElse "Mocka")
+    this setTitle mockup_title
     getActionBar setDisplayHomeAsUpEnabled true
 
-    // Reload the view
-    reload
+    // Set the list adapter
+    listView setAdapter adapter
   }
 
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
@@ -201,8 +164,7 @@ class MockupActivity extends SActivity with TypedActivity {
     val mockupimage = new MockupImage
     mockupimage.mockup_id := mockup_id
     mockupimage.uri := uri
-    mockupimage.image_order :=
-      listViewAdapter.map(_.getCount).getOrElse[Int](0)
+    mockupimage.image_order := adapter.getCount
 
     // Save the mockup
     future { mockupimage.save } onComplete {

@@ -117,10 +117,8 @@ trait Model {
         // Try to insert the element
         val newid = db.rw.insert(tableName, "_id", cv)
 
-        // If it fails, say something
+        // If it fails, say something, else update the ID
         if (newid == -1) warn(s"Unable to save $tableName object")
-
-        // If it didn't fail, update the ID
         else id := newid
 
         // Return the ID

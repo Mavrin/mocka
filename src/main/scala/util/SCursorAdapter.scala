@@ -48,7 +48,7 @@ extends CursorAdapter(ctx, null, 0) {
     val model = db.fromCursor[T](c)
 
     // Update the view
-    update(v, lctx, model)
+    runOnUiThread { update(v, lctx, model) }
 
     // Update the listener
     v onClick listener(model)

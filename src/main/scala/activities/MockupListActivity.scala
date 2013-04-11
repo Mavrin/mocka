@@ -110,8 +110,8 @@ class MockupListActivity extends SActivity with TypedActivity {
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => {
-      runOnUiThread { stopLoading }
+    .onComplete { case _ => runOnUiThread {
+      stopLoading
       adapter.notifyDataSetChanged
     }}
   }

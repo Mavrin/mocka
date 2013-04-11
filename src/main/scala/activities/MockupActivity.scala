@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.Window
 import android.view.KeyEvent
+import android.view.Gravity
 import android.view.inputmethod.EditorInfo
 import android.widget.CursorAdapter
 import android.widget.ImageView
@@ -107,8 +108,8 @@ class MockupActivity extends SActivity with TypedActivity {
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => {
-      runOnUiThread { stopLoading }
+    .onComplete { case _ => runOnUiThread {
+      stopLoading
       adapter.notifyDataSetChanged
     }}
   }
@@ -124,11 +125,12 @@ class MockupActivity extends SActivity with TypedActivity {
     // Setup the UI
     this requestWindowFeature Window.FEATURE_INDETERMINATE_PROGRESS
     this setContentView R.layout.ui_mockup
-    this setTitle mockup_title
     getActionBar setDisplayHomeAsUpEnabled true
 
     // Prepare the title text view
     titleTextView setSingleLine true
+    titleTextView setTextSize 20
+    titleTextView setGravity Gravity.CENTER_HORIZONTAL
     titleTextView setImeOptions EditorInfo.IME_ACTION_DONE
     titleTextView onEditorAction {
       (v: TextView, actionId: Int, ev: KeyEvent) =>
@@ -145,15 +147,11 @@ class MockupActivity extends SActivity with TypedActivity {
         titleTextView.clearFocus
         inputMethodManager.hideSoftInputFromWindow(v.getWindowToken, 0)
 
-        // Update title text
-        this setTitle v.getText
-
         // We did something
         true
 
       } else false
     }
-    titleTextView onTextChanged { this setTitle titleTextView.getText }
 
     // Set the list adapter
     listView addHeaderView titleTextView
@@ -182,7 +180,11 @@ class MockupActivity extends SActivity with TypedActivity {
 
   override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent) {
     if (requestCode == PICK_IMAGE && data != null && data.getData != null) {
+      // Create the image
       create(data.getData.asInstanceOf[Uri].toString)
+
+      // Reload the view
+      reload
     }
   }
 

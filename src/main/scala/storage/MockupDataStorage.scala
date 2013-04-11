@@ -5,15 +5,19 @@ import android.database.sqlite.SQLiteDatabase
 
 import org.scaloid.common._
 
-class Mockup extends Model {
+trait _Mockup extends Model {
   val title = StringField("title")
 }
 
-class MockupImage extends Model {
+trait _MockupImage extends Model {
   val mockup_id = LongField("mockup_id")
   val image_order = IntField("image_order")
   val uri = StringField("uri")
 }
+
+class Mockup extends _Mockup
+class MockupImage extends _MockupImage
+class MockupWithImage extends _Mockup with _MockupImage
 
 class MockupOpenHelper(implicit ctx: Context)
 extends SSQLiteOpenHelper("mockups", 1) {

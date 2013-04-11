@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
        android:layout_width="match_parent"
-       android:layout_height="wrap_content"
-       android:weightSum="1." >
+       android:layout_height="wrap_content">
 
        <ImageView
          android:id="@+id/preview"
-         android:layout_width="72dp"
-         android:layout_height="72dp"
-         android:background="#aaa" />
+         android:layout_width="match_parent"
+         android:layout_height="100dp"
+         android:scaleType="centerCrop"
+         android:background="#ffffffff" />
 
        <TextView
          android:id="@+id/title"
-         android:layout_width="0dp"
-         android:layout_height="72dp"
-         android:layout_weight="1.0"
-         android:layout_marginLeft="5dp"
+         android:layout_width="match_parent"
+         android:layout_height="match_parent"
          android:gravity="center_vertical"
-         android:textSize="24dp" />
+         android:textSize="30dp"
+         android:paddingLeft="20dp"
+         android:background="#99000000"
+         android:textColor="#ffeeeeee">
+       </TextView>
 
-</LinearLayout>
+</FrameLayout>

@@ -192,6 +192,9 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     db.execSQL(s"CREATE TABLE `$schemaName` ($schemaString);")
   }
 
+  def tableName[M <: Model : ClassTag] =
+    create[M].tableName
+
   // Run a query
   def query[M <: Model : ClassTag]
   (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {

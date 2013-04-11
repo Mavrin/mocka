@@ -13,11 +13,15 @@ import android.view.Gravity
 import android.widget.ProgressBar
 import android.widget.ListView
 import android.widget.TextView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.CursorAdapter
+import android.graphics.Bitmap
 
 import android.content.Context
 import android.database.Cursor
+
+import BitmapHelpers._
 
 import scala.concurrent._
 import scala.util.{Failure, Success}
@@ -34,10 +38,62 @@ class MockupListActivity extends SActivity with TypedActivity {
 
   // List view adapter for mockup objects
   object adapter
-  extends SModelAdapter[Mockup](R.layout.listitem_mockup, showMockup _) {
-    def update(v: View, context: Context, m: Mockup) {
+  extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup, showMockup _) {
+    val lru = new SLruCache[String, Bitmap](15)
+
+    def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
+      // If the view tag is null, return immediately
+      if (iv.getTag != null) {
+
+        // Check if the tag's URI is equal to the bitmap's URI
+        iv.getTag.asInstanceOf[Option[String]] match {
+
+          // If the tag is right, change the image
+          case Some(uriTag) if uriTag == uri => runOnUiThread {
+            bmp match {
+              case Some(b) => iv setImageBitmap b
+              case None => iv setImageBitmap null
+            }
+          }
+
+          // Do nothing if the tag is not right
+          case _ => ()
+        }
+      }
+
+    override def query = {
+      // Find out the table names
+      val nMockup = db.tableName[Mockup]
+      val nMockupImage = db.tableName[MockupImage]
+
+      // We're doing an inner join to find the first image
+      val nJoinedTableName =
+        s"$nMockup m INNER JOIN $nMockupImage mi ON m._id = mi.mockup_id"
+
+      // Run the query
+      db.ro.query(
+        true,
+        nJoinedTableName,
+        Array("*", "m._id as _id"), // Necessary to be able to see _id
+        null,
+        null,
+        "m._id",                    // Group by m._id
+        null,
+        null,
+        null
+      )
+    }
+
+    def update(v: View, context: Context, m: MockupWithImage) {
       val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
+      val imageView = v.findViewById(R.id.preview).asInstanceOf[ImageView]
+
+      imageView setTag m.uri.value
+      imageView setImageBitmap null
+
       for (t <- m.title.value) titleView setText t
+      for (uri <- m.uri.value)
+        lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
     }
   }
 
@@ -58,7 +114,7 @@ class MockupListActivity extends SActivity with TypedActivity {
   }
 
   // Show the mockup activity
-  def showMockup(m: Mockup) = {
+  def showMockup(m: _Mockup) = {
     // Start the activity
     val intent = SIntent[MockupActivity]
     for (id <- m.id.value) intent.putExtra(MockupActivity.MOCKUP_ID, id)

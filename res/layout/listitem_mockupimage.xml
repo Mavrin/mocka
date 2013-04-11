@@ -8,7 +8,8 @@
          android:id="@+id/image"
          android:layout_width="match_parent"
          android:layout_height="250dp"
-         android:background="#aaa" />
+         android:scaleType="centerCrop"
+         android:background="#ffffffff" />
 
        <TextView
          android:id="@+id/title"

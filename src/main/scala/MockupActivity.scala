@@ -10,13 +10,20 @@ import android.view.Window
 import android.widget.CursorAdapter
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.FrameLayout
 import android.content.Context
 import android.content.Intent
 import android.database.Cursor
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.net.Uri
+import android.util.LruCache
 
 import scala.concurrent._
 import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
+
+import BitmapHelpers._
 
 import org.scaloid.common._
 
@@ -25,6 +32,9 @@ extends CursorAdapter(ctx, cursor, 0) {
 
   // UI Inflater
   val inflater = LayoutInflater from ctx
+
+  // LRU cache
+  val lru = new LruCache[String, Bitmap](15)
 
   // Load an existing view from a cursor
   override def bindView(v: View, lctx: Context, c: Cursor) = {
@@ -39,8 +49,32 @@ extends CursorAdapter(ctx, cursor, 0) {
     val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
     val imageView = v.findViewById(R.id.image).asInstanceOf[ImageView]
 
-    // Fill the view
+    // Set the title
     for (t <- mi.image_order.value) titleView setText s"Slide ${t.toString}"
+
+    // Set the image
+    mi.uri.value match {
+      case Some(uri) => {
+        // Try to retrieve the imag from the LRU cache
+        val img = lru get uri
+
+        // If it was retrieved, use it
+        if (img != null) imageView setImageBitmap img
+
+        // If not, load it and put it in the cache
+        else future { loadBitmap(uri) } collect {
+          case Some(b) => {
+            // Put the image in the cache
+            lru synchronized { lru.put (uri, b) }
+
+            // Put the image in the ImageView
+            runOnUiThread { imageView setImageBitmap b }
+          }
+        }
+      }
+
+      case None => imageView setImageBitmap null
+    }
   }
 
   // Load a new view
@@ -98,11 +132,11 @@ class MockupActivity extends SActivity with TypedActivity {
   }
 
   def startLoading = {
-    setProgressBarIndeterminateVisibility(true)
+    runOnUiThread { setProgressBarIndeterminateVisibility(true) }
   }
 
   def stopLoading = {
-    setProgressBarIndeterminateVisibility(false)
+    runOnUiThread { setProgressBarIndeterminateVisibility(false) }
   }
 
   override def onCreate(bundle: Bundle) = {
@@ -142,32 +176,52 @@ class MockupActivity extends SActivity with TypedActivity {
     super.onDestroy
   }
 
+  override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent) {
+    if (requestCode == PICK_IMAGE && data != null && data.getData != null) {
+      create(data.getData.asInstanceOf[Uri].toString)
+    }
+  }
+
+  def imagePath(uri: Uri): String = {
+    // Create a cursor from the URI
+    val cursor = getContentResolver.query(uri, Array(android.provider.MediaStore.MediaColumns.DATA), null, null, null)
+
+    // Find the path of the first item in the cursor
+    cursor.moveToFirst
+    val imageFilePath = cursor getString 0
+    cursor.close
+
+    // Return that path
+    return imageFilePath
+  }
+
+  def create(uri: String) = {
+    // Create a new mockup
+    info(s"Creating new mockup image with URI $uri")
+    val mockupimage = new MockupImage
+    mockupimage.mockup_id := mockup_id
+    mockupimage.uri := uri
+    mockupimage.image_order :=
+      listViewAdapter.map(_.getCount).getOrElse[Int](0)
+
+    // Save the mockup
+    future { mockupimage.save } onComplete {
+      case Failure(f) => error(s"Unable to save mockupimage: ${f.toString}")
+      case Success(id) => reload
+    }
+  }
+
   override def onOptionsItemSelected (item: MenuItem): Boolean = {
     item.getItemId match {
+      // Try to find an image
       case R.id.ui_new => {
-        // Create a new mockup
-        val mockupimage = new MockupImage
-        mockupimage.mockup_id := mockup_id
-        mockupimage.uri := ""
-        mockupimage.image_order :=
-          listViewAdapter.map(_.getCount).getOrElse[Int](0)
-
-        // Disable the menu item until we're done
-        item setEnabled false
-
-        // Save the mockup
-        future { mockupimage.save } onComplete {
-          case Failure(f) => error(s"Unable to save mockupimage: ${f.toString}")
-          case Success(id) => runOnUiThread {
-            // Set the menu item to enabled again
-            item setEnabled true
-
-            // Reload data
-            reload
-          }
-        }
+        val intent = new Intent
+        intent setType "image/*"
+        intent setAction Intent.ACTION_GET_CONTENT
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
       }
 
+      // Return to the previous activity
       case android.R.id.home => finish
     }
 
@@ -178,4 +232,6 @@ class MockupActivity extends SActivity with TypedActivity {
 object MockupActivity {
   val MOCKUP_ID = "mockup_id"
   val MOCKUP_TITLE = "mockup_title"
+
+  val PICK_IMAGE = 1
 }

@@ -7,9 +7,12 @@ import android.view.{Menu, MenuInflater, MenuItem}
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.Window
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
 import android.widget.CursorAdapter
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.content.Context
 import android.content.Intent
@@ -38,6 +41,9 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // List view holding the mockup images
   lazy val listView = findView(TR.screens)
+
+  // Title text editor
+  lazy val titleTextView = new EditText(implicitly[Context])
 
   // Show a mockup image
   def showImage(m: MockupImage) = ()
@@ -92,13 +98,19 @@ class MockupActivity extends SActivity with TypedActivity {
   // Reload the mockups
   def reload = {
     // Start the loading spinner
-    runOnUiThread { startLoading }
+    runOnUiThread {
+      titleTextView setText mockup_title
+      startLoading
+    }
 
     // Reload things
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread { stopLoading } }
+    .onComplete { case _ => {
+      runOnUiThread { stopLoading }
+      adapter.notifyDataSetChanged
+    }}
   }
 
   // Start and stop the loading Window spinner
@@ -115,7 +127,36 @@ class MockupActivity extends SActivity with TypedActivity {
     this setTitle mockup_title
     getActionBar setDisplayHomeAsUpEnabled true
 
+    // Prepare the title text view
+    titleTextView setSingleLine true
+    titleTextView setImeOptions EditorInfo.IME_ACTION_DONE
+    titleTextView onEditorAction {
+      (v: TextView, actionId: Int, ev: KeyEvent) =>
+      if (actionId == EditorInfo.IME_ACTION_DONE) {
+
+        // Save mockup
+        info(s"Saving mockup")
+        val m = new Mockup
+        m.id := mockup_id
+        m.title := v.getText.toString
+        future { m.save } onSuccess { case _ => info(s"Saved mockup") }
+
+        // Dismiss keyboard
+        titleTextView.clearFocus
+        inputMethodManager.hideSoftInputFromWindow(v.getWindowToken, 0)
+
+        // Update title text
+        this setTitle v.getText
+
+        // We did something
+        true
+
+      } else false
+    }
+    titleTextView onTextChanged { this setTitle titleTextView.getText }
+
     // Set the list adapter
+    listView addHeaderView titleTextView
     listView setAdapter adapter
   }
 

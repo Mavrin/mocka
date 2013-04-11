@@ -12,8 +12,11 @@ class SLruCache[A, B](max_size: Int) extends LruCache[A, B](max_size) {
   def apply(key: A)(run: (A, Option[B]) => Unit, elseRun: A => Option[B])
     (implicit ec: ExecutionContext) = {
 
-    // Try to get the value
-    this getOpt key match {
+    // If key is null, return None
+    if (key == null) run(key, None)
+
+    // Else, try to get the value
+    else this getOpt key match {
       // Return the value if it is in the cache
       case Some(b) => run(key, Some(b))
 

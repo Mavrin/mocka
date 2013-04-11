@@ -68,7 +68,7 @@ class MockupListActivity extends SActivity with TypedActivity {
 
       // We're doing an inner join to find the first image
       val nJoinedTableName =
-        s"$nMockup m INNER JOIN $nMockupImage mi ON m._id = mi.mockup_id"
+        s"$nMockup m LEFT OUTER JOIN $nMockupImage mi ON m._id = mi.mockup_id"
 
       // Run the query
       db.ro.query(
@@ -77,7 +77,7 @@ class MockupListActivity extends SActivity with TypedActivity {
         Array("*", "m._id as _id"), // Necessary to be able to see _id
         null,
         null,
-        "m._id",                    // Group by m._id
+        "_id",                    // Group by m._id
         null,
         null,
         null
@@ -110,7 +110,10 @@ class MockupListActivity extends SActivity with TypedActivity {
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread { stopLoading } }
+    .onComplete { case _ => {
+      runOnUiThread { stopLoading }
+      adapter.notifyDataSetChanged
+    }}
   }
 
   // Show the mockup activity

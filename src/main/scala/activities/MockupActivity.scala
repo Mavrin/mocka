@@ -51,7 +51,7 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // List view adapter
   object adapter
-  extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage, showImage _) {
+  extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {
     val lru = new SLruCache[String, Bitmap](15)
 
     override def query =

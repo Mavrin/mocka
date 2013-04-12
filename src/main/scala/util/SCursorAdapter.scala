@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 import org.scaloid.common._
 
 abstract class SModelAdapter[T <: Model : ClassTag]
-  (res: Int, listener: T => Unit)
+  (res: Int)
   (implicit db: SSQLiteOpenHelper, ctx: Context, exc: ExecutionContext)
 extends CursorAdapter(ctx, null, 0) {
 
@@ -26,7 +26,7 @@ extends CursorAdapter(ctx, null, 0) {
     // Change the cursor on completion, or print a stack trace
     fut onComplete {
       case Failure(f) => f.printStackTrace
-      case Success(c) => this changeCursor c
+      case Success(c) => runOnUiThread { this changeCursor c }
     }
 
     // Return the future
@@ -49,12 +49,9 @@ extends CursorAdapter(ctx, null, 0) {
 
     // Update the view
     runOnUiThread { update(v, lctx, model) }
-
-    // Update the listener
-    v onClick listener(model)
   }
 
   // Create a new view
   override def newView(lctx: Context, c: Cursor, parent: ViewGroup) =
-    inflater.inflate(res, parent, false)
+    runOnUiThread { inflater.inflate(res, parent, false) }
 }

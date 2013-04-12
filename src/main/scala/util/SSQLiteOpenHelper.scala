@@ -127,6 +127,14 @@ trait Model {
     }
   }
 
+  def remove(implicit db: SSQLiteOpenHelper) = {
+    id.value match {
+      case Some(i) =>
+        db.rw.delete(tableName, "_id = ?", Array(i.toString))
+      case None => ()
+    }
+  }
+
   // Fill a model from a Cursor
   def <<(c: Cursor) = for (f <- fields) f << c
 

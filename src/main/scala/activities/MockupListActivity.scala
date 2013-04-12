@@ -10,12 +10,14 @@ import android.view.MenuItem
 import android.view.ViewGroup
 import android.view.Window
 import android.view.Gravity
+import android.view.ContextMenu
 import android.widget.ProgressBar
 import android.widget.ListView
 import android.widget.TextView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.CursorAdapter
+import android.widget.AdapterView
 import android.graphics.Bitmap
 
 import android.content.Context
@@ -35,10 +37,12 @@ class MockupListActivity extends SActivity with TypedActivity {
 
   // The current list view holding mockups
   lazy val listView = findView(TR.mockups)
+  class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
+  @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
 
   // List view adapter for mockup objects
   object adapter
-  extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup, showMockup _) {
+  extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup) {
     val lru = new SLruCache[String, Bitmap](15)
 
     def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
@@ -134,12 +138,48 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     // Set the list adapter
     listView setAdapter adapter
+    new RichListView(listView) onItemClick {
+      (parent: AdapterView[_], view: View, position: Int, id: Long) => {
+        val cursor = (adapter getItem position).asInstanceOf[Cursor]
+        showMockup (db.fromCursor[Mockup](cursor))
+      }
+    }
+
+    // Register the context menu for the list
+    this registerForContextMenu listView
   }
 
   // Option menu creation
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
     getMenuInflater.inflate(R.menu.ui_mockuplist, menu)
     return true
+  }
+
+  // Context menu creation
+  override def onCreateContextMenu(menu: ContextMenu, v: View, info: ContextMenu.ContextMenuInfo) = {
+    v.getId match {
+      case R.id.mockups => {
+        val tinfo = info.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+        menu setHeaderTitle "Edit Mockup"
+        menu.add (0, 0, 0, "Remove")
+      }
+    }
+  }
+
+  // Context menu item click
+  override def onContextItemSelected(item: MenuItem) = {
+    // Currently selected menu item
+    val tinfo = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+
+    // Currently selected mockup
+    val cursor = (adapter getItem tinfo.position).asInstanceOf[Cursor]
+    val model = db.fromCursor[Mockup](cursor)
+
+    // Run the action
+    item.getItemId match {
+      case 0 => model.remove; reload; true
+      case _ => false
+    }
   }
 
   // Activity pause

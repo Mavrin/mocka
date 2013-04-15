@@ -119,6 +119,7 @@ class MockupActivity extends SActivity with TypedActivity {
     titleTextView setTextSize 20
     titleTextView setGravity Gravity.CENTER_HORIZONTAL
     titleTextView setImeOptions EditorInfo.IME_ACTION_DONE
+    titleTextView setLongClickable false
     titleTextView onEditorAction {
       (v: TextView, actionId: Int, ev: KeyEvent) =>
       if (actionId == EditorInfo.IME_ACTION_DONE) {
@@ -141,7 +142,7 @@ class MockupActivity extends SActivity with TypedActivity {
     }
 
     // Set the list adapter
-    listView addHeaderView titleTextView
+    listView.addHeaderView(titleTextView, null, false)
     listView setAdapter adapter
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
@@ -150,7 +151,6 @@ class MockupActivity extends SActivity with TypedActivity {
       }
     }
 
-    // Register the context menu for the list
     this registerForContextMenu listView
   }
 
@@ -177,13 +177,16 @@ class MockupActivity extends SActivity with TypedActivity {
 
     // Currently selected mockup
     val cursor = (listView getItemAtPosition tinfo.position).asInstanceOf[Cursor]
-    val model = db.fromCursor[MockupImage](cursor)
 
-    // Run the action
-    item.getItemId match {
-      case 0 => model.remove; reload; true
-      case _ => false
-    }
+    if (cursor != null) {
+      val model = db.fromCursor[MockupImage](cursor)
+
+      // Run the action
+      item.getItemId match {
+        case 0 => model.remove; reload; true
+        case _ => false
+      }
+    } else false
   }
 
   override def onPause = {

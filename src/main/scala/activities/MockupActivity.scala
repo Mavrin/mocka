@@ -53,6 +53,13 @@ class MockupActivity extends SActivity with TypedActivity {
     }
   }
 
+  override def onBackPressed() {
+    if (flipper.getDisplayedChild > 0) {
+      getActionBar.show
+      flipper.showPrevious
+    } else super.onBackPressed
+  }
+
   // List view adapter
   object adapter
   extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {

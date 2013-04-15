@@ -1,26 +1,14 @@
 package com.github.fxthomas.mocka
 
-import android.app.Activity
-import android.os.Bundle
-import android.view.View
-import android.view.{Menu, MenuInflater, MenuItem}
-import android.view.LayoutInflater
-import android.view.ViewGroup
-import android.view.Window
-import android.view.KeyEvent
-import android.view.Gravity
-import android.view.inputmethod.EditorInfo
-import android.widget.CursorAdapter
-import android.widget.ImageView
-import android.widget.TextView
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.content.Context
-import android.content.Intent
+import android.app._
+import android.os._
+import android.view._
+import android.view.inputmethod._
+import android.widget._
+import android.content._
 import android.database.Cursor
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
-import android.net.Uri
+import android.graphics._
+import android.net._
 
 import scala.concurrent._
 import scala.util.{Failure, Success}
@@ -42,6 +30,8 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // List view holding the mockup images
   lazy val listView = findView(TR.screens)
+  class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
+  @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
 
   // Title text editor
   lazy val titleTextView = new EditText(implicitly[Context])
@@ -108,10 +98,7 @@ class MockupActivity extends SActivity with TypedActivity {
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread {
-      stopLoading
-      adapter.notifyDataSetChanged
-    }}
+    .onComplete { case _ => runOnUiThread { stopLoading }}
   }
 
   // Start and stop the loading Window spinner
@@ -156,11 +143,47 @@ class MockupActivity extends SActivity with TypedActivity {
     // Set the list adapter
     listView addHeaderView titleTextView
     listView setAdapter adapter
+    listView onItemClick {
+      (parent: AdapterView[_], view: View, position: Int, id: Long) => {
+        val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
+        showImage (db.fromCursor[MockupImage](cursor))
+      }
+    }
+
+    // Register the context menu for the list
+    this registerForContextMenu listView
   }
 
   override def onCreateOptionsMenu(menu: Menu): Boolean = {
     getMenuInflater.inflate(R.menu.ui_mockupimage, menu)
     return true
+  }
+
+  // Context menu creation
+  override def onCreateContextMenu(menu: ContextMenu, v: View, info: ContextMenu.ContextMenuInfo) = {
+    v.getId match {
+      case R.id.screens => {
+        val tinfo = info.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+        menu setHeaderTitle "Edit Screen"
+        menu.add (0, 0, 0, "Remove")
+      }
+    }
+  }
+
+  // Context menu item click
+  override def onContextItemSelected(item: MenuItem) = {
+    // Currently selected menu item
+    val tinfo = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+
+    // Currently selected mockup
+    val cursor = (listView getItemAtPosition tinfo.position).asInstanceOf[Cursor]
+    val model = db.fromCursor[MockupImage](cursor)
+
+    // Run the action
+    item.getItemId match {
+      case 0 => model.remove; reload; true
+      case _ => false
+    }
   }
 
   override def onPause = {

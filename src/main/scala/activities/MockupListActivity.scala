@@ -1,27 +1,14 @@
 package com.github.fxthomas.mocka
 
-import android.app.Activity
-import android.os.Bundle
-import android.view.View
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.LayoutInflater
-import android.view.MenuItem
-import android.view.ViewGroup
-import android.view.Window
-import android.view.Gravity
-import android.view.ContextMenu
-import android.widget.ProgressBar
-import android.widget.ListView
-import android.widget.TextView
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.CursorAdapter
-import android.widget.AdapterView
-import android.graphics.Bitmap
-
-import android.content.Context
+import android.app._
+import android.os._
+import android.view._
+import android.view.inputmethod._
+import android.widget._
+import android.content._
 import android.database.Cursor
+import android.graphics._
+import android.net._
 
 import BitmapHelpers._
 
@@ -114,10 +101,7 @@ class MockupListActivity extends SActivity with TypedActivity {
     adapter.reload
 
     // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread {
-      stopLoading
-      adapter.notifyDataSetChanged
-    }}
+    .onComplete { case _ => runOnUiThread { stopLoading }}
   }
 
   // Show the mockup activity
@@ -138,7 +122,7 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     // Set the list adapter
     listView setAdapter adapter
-    new RichListView(listView) onItemClick {
+    listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
         val cursor = (adapter getItem position).asInstanceOf[Cursor]
         showMockup (db.fromCursor[Mockup](cursor))

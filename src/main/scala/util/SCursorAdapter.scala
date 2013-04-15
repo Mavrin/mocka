@@ -26,7 +26,10 @@ extends CursorAdapter(ctx, null, 0) {
     // Change the cursor on completion, or print a stack trace
     fut onComplete {
       case Failure(f) => f.printStackTrace
-      case Success(c) => runOnUiThread { this changeCursor c }
+      case Success(c) => runOnUiThread {
+        this.changeCursor(c)
+        this.notifyDataSetChanged
+      }
     }
 
     // Return the future

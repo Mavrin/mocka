@@ -45,7 +45,6 @@ class MockupActivity extends SActivity with TypedActivity {
     for (uri <- m.uri.value) {
       future { loadBitmap(uri) } onSuccess {
         case Some(b) => runOnUiThread {
-          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
           getActionBar.hide
           screenView setImageBitmap b
           flipper.showNext

@@ -13,7 +13,10 @@
         android:theme="@android:style/Theme.Holo.Light"
         android:debuggable="true">
 
-        <activity android:label="@string/app_name" android:name=".MockupListActivity">
+        <activity
+          android:label="@string/app_name"
+          android:name=".MockupListActivity"
+          android:configChanges="orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -23,7 +26,8 @@
         <activity
           android:label="@string/mockup_edit_screens"
           android:name=".MockupActivity"
-          android:launchMode="singleTask">
+          android:launchMode="singleTask"
+          android:configChanges="orientation|screenSize">
         </activity>
 
         <uses-library android:name="scala-library-2.10.1" android:required="true"/>

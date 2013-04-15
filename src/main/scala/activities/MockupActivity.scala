@@ -6,6 +6,8 @@ import android.view._
 import android.view.inputmethod._
 import android.widget._
 import android.content._
+import android.content.pm._
+import android.content.res._
 import android.database.Cursor
 import android.graphics._
 import android.net._
@@ -30,6 +32,8 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // List view holding the mockup images
   lazy val listView = findView(TR.screens)
+  lazy val screenView = findView(TR.screen)
+  lazy val flipper = findView(TR.flipper)
   class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
   @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
 
@@ -37,7 +41,18 @@ class MockupActivity extends SActivity with TypedActivity {
   lazy val titleTextView = new EditText(implicitly[Context])
 
   // Show a mockup image
-  def showImage(m: MockupImage) = ()
+  def showImage(m: MockupImage) = {
+    for (uri <- m.uri.value) {
+      future { loadBitmap(uri) } onSuccess {
+        case Some(b) => runOnUiThread {
+          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+          getActionBar.hide
+          screenView setImageBitmap b
+          flipper.showNext
+        }
+      }
+    }
+  }
 
   // List view adapter
   object adapter
@@ -240,6 +255,10 @@ class MockupActivity extends SActivity with TypedActivity {
       case Failure(f) => error(s"Unable to save mockupimage: ${f.toString}")
       case Success(id) => reload
     }
+  }
+
+  override def onConfigurationChanged (conf: Configuration) = {
+    super.onConfigurationChanged(conf)
   }
 
   override def onOptionsItemSelected (item: MenuItem): Boolean = {

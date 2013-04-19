@@ -20,6 +20,7 @@ object General {
     useProguard := false,
     skipScalaLibrary := true,
     predexLibraries := true,
+    proguardOptimizations += "-keep class scala.collection.SeqLike { public java.lang.String toString(); }",
     proguardOptimizations += "-keep class com.github.fxthomas.mocka.** { *; }"
   ))
 

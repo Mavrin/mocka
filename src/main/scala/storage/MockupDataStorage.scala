@@ -15,8 +15,18 @@ trait _MockupImage extends Model {
   val uri = StringField("uri")
 }
 
+trait _MockupTransition extends Model {
+  val mockup_id = LongField("mockup_id")
+  val image_from = LongField("image_from")
+  val image_to = LongField("image_to")
+  val x = FloatField("x")
+  val y = FloatField("y")
+  val size = FloatField("size")
+}
+
 class Mockup extends _Mockup
 class MockupImage extends _MockupImage
+class MockupTransition extends _MockupTransition
 class MockupWithImage extends _Mockup with _MockupImage
 
 class MockupOpenHelper(implicit ctx: Context)
@@ -26,6 +36,7 @@ extends SSQLiteOpenHelper("mockups", 1) {
   // Create the database
   override def onCreate(db: SQLiteDatabase) {
     createTable[Mockup](db)
+    createTable[MockupTransition](db)
     createTable[MockupImage](db)
   }
 

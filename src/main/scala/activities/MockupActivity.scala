@@ -27,6 +27,11 @@ class MockupActivity extends SActivity with TypedActivity {
   def mockup_id = getIntent.getLongExtra(MOCKUP_ID, 0)
   def mockup_title = getIntent.getStringExtra(MOCKUP_TITLE)
 
+  // Currently displayed image
+  var current_image_id: Option[Long] = None
+  var current_x = 0.f
+  var current_y = 0.f
+
   // Default database
   lazy implicit val db = new MockupOpenHelper
 
@@ -42,12 +47,13 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Show a mockup image
   def showImage(m: MockupImage) = {
-    for (uri <- m.uri.value) {
+    for (uri <- m.uri.value; id <- m.id.value) {
       future { loadBitmap(uri) } onSuccess {
         case Some(b) => runOnUiThread {
           getActionBar.hide
           screenView setImageBitmap b
           flipper.showNext
+          current_image_id = Some(id)
         }
       }
     }
@@ -57,6 +63,7 @@ class MockupActivity extends SActivity with TypedActivity {
     if (flipper.getDisplayedChild > 0) {
       getActionBar.show
       flipper.showPrevious
+      current_image_id = None
     } else super.onBackPressed
   }
 
@@ -160,6 +167,26 @@ class MockupActivity extends SActivity with TypedActivity {
         true
 
       } else false
+    }
+
+    screenView onSelect {
+      (x: Float, y: Float) => {
+        current_image_id match {
+          case Some(id) => {
+            val v = new MockupTransition
+            v.mockup_id := mockup_id
+            v.image_from := id
+            v.image_to := 0
+            v.x := x
+            v.y := y
+            v.size := 30
+            info(s"Saving transition for $mockup_id from $id to 0 (at $x, $y)")
+            future { v.save }
+            true
+          }
+          case _ => false
+        }
+      }
     }
 
     // Set the list adapter

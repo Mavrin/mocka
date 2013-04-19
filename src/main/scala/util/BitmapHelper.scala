@@ -27,18 +27,26 @@ object BitmapHelpers {
   // Load a bitmap
   def loadBitmap(t: String)(implicit ctx: Context) = {
     Option(Uri.parse(t)) map { uri =>
+      // Decode bitmap size
       val opt = new BitmapFactory.Options
       opt.inJustDecodeBounds = true
       val is1 = ctx.getContentResolver.openInputStream(uri)
       BitmapFactory.decodeStream(is1, null, opt)
       is1.close
 
-      opt.inSampleSize = calculateInSampleSize(opt, 512, 512)
+      // Find out the size of the screen
+      val w = ctx.getResources.getDisplayMetrics.widthPixels
+      val h = ctx.getResources.getDisplayMetrics.heightPixels
+      val s = if (w < h) h else w
+
+      // Decode the full image
+      opt.inSampleSize = calculateInSampleSize(opt, s, s)
       opt.inJustDecodeBounds = false
       val is2 = ctx.getContentResolver.openInputStream(uri)
       val bmp = BitmapFactory.decodeStream(is2, null, opt)
       is2.close
 
+      // Return the downscaled image
       bmp
     }
   }

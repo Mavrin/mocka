@@ -72,6 +72,13 @@ extends Field[java.lang.Integer](sqlName, sqlType) {
   override def toContentValues(c: ContentValues, cid: String, v: java.lang.Integer) = c.put(cid, v: java.lang.Integer)
 }
 
+case class FloatField(override val sqlName: String, override val sqlType: String = "INTEGER")(implicit override val model: Model)
+extends Field[java.lang.Float](sqlName, sqlType) {
+  override def fromCursor(c: Cursor, cid: Int) = c getFloat cid
+  override def fromContentValues(c: ContentValues, cid: String) = c getAsFloat cid
+  override def toContentValues(c: ContentValues, cid: String, v: java.lang.Float) = c.put(cid, v: java.lang.Float)
+}
+
 case class LongField(override val sqlName: String, override val sqlType: String = "INTEGER")(implicit override val model: Model)
 extends Field[java.lang.Long](sqlName, sqlType) {
   override def fromCursor(c: Cursor, cid: Int) = c getLong cid

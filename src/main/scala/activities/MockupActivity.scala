@@ -45,6 +45,198 @@ class MockupActivity extends SActivity with TypedActivity {
   // Title text editor
   lazy val titleTextView = new EditText(implicitly[Context])
 
+  override def onBackPressed() {
+    if (flipper.getDisplayedChild > 0) {
+      getActionBar.show
+      flipper.showPrevious
+      current_image_id = None
+    } else super.onBackPressed
+  }
+
+
+  override def onCreate(bundle: Bundle) = {
+    // Load UI
+    super.onCreate(bundle)
+
+    // Setup the UI
+    this requestWindowFeature Window.FEATURE_INDETERMINATE_PROGRESS
+    this setContentView R.layout.ui_mockup
+    getActionBar setDisplayHomeAsUpEnabled true
+
+    // Prepare the title text view
+    titleTextView setSingleLine true
+    titleTextView setTextSize 20
+    titleTextView setGravity Gravity.CENTER_HORIZONTAL
+    titleTextView setImeOptions EditorInfo.IME_ACTION_DONE
+    titleTextView setLongClickable false
+    titleTextView onEditorAction {
+      (v: TextView, actionId: Int, ev: KeyEvent) =>
+      if (actionId == EditorInfo.IME_ACTION_DONE) {
+        saveTitle; true
+      } else false
+    }
+
+    screenView onSelect {
+      (x: Float, y: Float) => { addTransition(0, x, y, 50.f); true }
+    }
+
+    // Set the list adapter
+    listView.addHeaderView(titleTextView, null, false)
+    listView setAdapter adapter
+    listView onItemClick {
+      (parent: AdapterView[_], view: View, position: Int, id: Long) => {
+        val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
+        showImage (db.fromCursor[MockupImage](cursor))
+      }
+    }
+
+    this registerForContextMenu listView
+  }
+
+  override def onCreateOptionsMenu(menu: Menu): Boolean = {
+    getMenuInflater.inflate(R.menu.ui_mockupimage, menu)
+    return true
+  }
+
+  // Context menu creation
+  override def onCreateContextMenu(menu: ContextMenu, v: View, info: ContextMenu.ContextMenuInfo) = {
+    v.getId match {
+      case R.id.screens => {
+        val tinfo = info.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+        menu setHeaderTitle "Edit Screen"
+        menu.add (0, 0, 0, "Remove")
+      }
+    }
+  }
+
+  // Context menu item click
+  override def onContextItemSelected(item: MenuItem): Boolean = {
+    // Retrieve information about the selected list item
+    val info = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+
+    // Execute the right action for the selected menu item
+    item.getItemId match {
+      case 0 => reloadAfter { removeImage(info.position) }
+    }
+
+    // We did something, so return true
+    return true
+  }
+
+  override def onPause = {
+    saveTitle onComplete { case _ => db.close }
+    super.onPause
+  }
+
+  override def onResume = {
+    reload
+    super.onResume
+  }
+
+  override def onDestroy = {
+    saveTitle onComplete { case _ => db.close }
+    super.onDestroy
+  }
+
+  override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent) {
+    if (requestCode == PICK_IMAGE && data != null && data.getData != null) {
+      reloadAfter {
+        addImage(data.getData.asInstanceOf[Uri].toString)
+      }
+    }
+  }
+
+  override def onConfigurationChanged (conf: Configuration) = {
+    super.onConfigurationChanged(conf)
+  }
+
+  override def onOptionsItemSelected (item: MenuItem): Boolean = {
+    item.getItemId match {
+      case R.id.ui_new => selectImage
+      case android.R.id.home => finish
+    }
+
+    return true
+  }
+
+  /*********************
+   * Available actions *
+   *********************/
+
+  def selectImage {
+    // Create an intent showing the gallery
+    val intent = new Intent
+    intent setType "image/*"
+    intent setAction Intent.ACTION_GET_CONTENT
+
+    // Start the intent
+    startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
+  }
+
+  def addTransition(to: Long, x: Float, y: Float, size: Float) = {
+    // Inform the user
+    info(s"Saving transition for $mockup_id (at $x, $y)")
+
+    // Create the transition
+    val v = new MockupTransition
+    v.mockup_id := mockup_id
+    v.image_from := current_image_id.get
+    v.image_to := to
+    v.x := x
+    v.y := y
+    v.size := size
+
+    // Saave the transition
+    future { v.save }
+  }
+
+  def addImage(uri: String) = {
+    // Log what's happening
+    info(s"Creating new mockup image with URI $uri")
+
+    // Create a new mockup image
+    val mockupimage = new MockupImage
+    mockupimage.mockup_id := mockup_id
+    mockupimage.uri := uri
+    mockupimage.image_order := adapter.getCount
+
+    // Save the mockup
+    future { mockupimage.save }
+  }
+
+  def removeImage(position: Int) = {
+    // Currently selected mockup
+    val cursor = (listView getItemAtPosition position).asInstanceOf[Cursor]
+
+    // Remove the mockup image if the cursor is not null
+    future { db.fromCursor[MockupImage](cursor).remove }
+  }
+
+  def saveTitle = {
+    // Log what's happening
+    info(s"Saving mockup $mockup_id")
+
+    // Create the mockup instance
+    val m = new Mockup
+    m.id := mockup_id
+    m.title := titleTextView.getText.toString
+
+    // Dismiss keyboard
+    titleTextView.clearFocus
+    inputMethodManager.hideSoftInputFromWindow(
+      titleTextView.getWindowToken, 0)
+
+    // Save the mockup
+    future { m.save }
+  }
+
+  def reloadAfter(f: => Future[_]) {
+    f onComplete {
+      case Failure(f) => f.printStackTrace; reload
+      case Success(_) => reload
+    }
+  }
+
   // Show a mockup image
   def showImage(m: MockupImage) = {
     for (uri <- m.uri.value; id <- m.id.value) {
@@ -57,14 +249,6 @@ class MockupActivity extends SActivity with TypedActivity {
         }
       }
     }
-  }
-
-  override def onBackPressed() {
-    if (flipper.getDisplayedChild > 0) {
-      getActionBar.show
-      flipper.showPrevious
-      current_image_id = None
-    } else super.onBackPressed
   }
 
   // List view adapter
@@ -132,184 +316,6 @@ class MockupActivity extends SActivity with TypedActivity {
   // Start and stop the loading Window spinner
   def startLoading = setProgressBarIndeterminateVisibility(true)
   def stopLoading = setProgressBarIndeterminateVisibility(false)
-
-  override def onCreate(bundle: Bundle) = {
-    // Load UI
-    super.onCreate(bundle)
-
-    // Setup the UI
-    this requestWindowFeature Window.FEATURE_INDETERMINATE_PROGRESS
-    this setContentView R.layout.ui_mockup
-    getActionBar setDisplayHomeAsUpEnabled true
-
-    // Prepare the title text view
-    titleTextView setSingleLine true
-    titleTextView setTextSize 20
-    titleTextView setGravity Gravity.CENTER_HORIZONTAL
-    titleTextView setImeOptions EditorInfo.IME_ACTION_DONE
-    titleTextView setLongClickable false
-    titleTextView onEditorAction {
-      (v: TextView, actionId: Int, ev: KeyEvent) =>
-      if (actionId == EditorInfo.IME_ACTION_DONE) {
-
-        // Save mockup
-        info(s"Saving mockup")
-        val m = new Mockup
-        m.id := mockup_id
-        m.title := v.getText.toString
-        future { m.save } onSuccess { case _ => info(s"Saved mockup") }
-
-        // Dismiss keyboard
-        titleTextView.clearFocus
-        inputMethodManager.hideSoftInputFromWindow(v.getWindowToken, 0)
-
-        // We did something
-        true
-
-      } else false
-    }
-
-    screenView onSelect {
-      (x: Float, y: Float) => {
-        current_image_id match {
-          case Some(id) => {
-            val v = new MockupTransition
-            v.mockup_id := mockup_id
-            v.image_from := id
-            v.image_to := 0
-            v.x := x
-            v.y := y
-            v.size := 30
-            info(s"Saving transition for $mockup_id from $id to 0 (at $x, $y)")
-            future { v.save }
-            true
-          }
-          case _ => false
-        }
-      }
-    }
-
-    // Set the list adapter
-    listView.addHeaderView(titleTextView, null, false)
-    listView setAdapter adapter
-    listView onItemClick {
-      (parent: AdapterView[_], view: View, position: Int, id: Long) => {
-        val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
-        showImage (db.fromCursor[MockupImage](cursor))
-      }
-    }
-
-    this registerForContextMenu listView
-  }
-
-  override def onCreateOptionsMenu(menu: Menu): Boolean = {
-    getMenuInflater.inflate(R.menu.ui_mockupimage, menu)
-    return true
-  }
-
-  // Context menu creation
-  override def onCreateContextMenu(menu: ContextMenu, v: View, info: ContextMenu.ContextMenuInfo) = {
-    v.getId match {
-      case R.id.screens => {
-        val tinfo = info.asInstanceOf[AdapterView.AdapterContextMenuInfo]
-        menu setHeaderTitle "Edit Screen"
-        menu.add (0, 0, 0, "Remove")
-      }
-    }
-  }
-
-  // Context menu item click
-  override def onContextItemSelected(item: MenuItem) = {
-    // Currently selected menu item
-    val tinfo = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
-
-    // Currently selected mockup
-    val cursor = (listView getItemAtPosition tinfo.position).asInstanceOf[Cursor]
-
-    if (cursor != null) {
-      val model = db.fromCursor[MockupImage](cursor)
-
-      // Run the action
-      item.getItemId match {
-        case 0 => model.remove; reload; true
-        case _ => false
-      }
-    } else false
-  }
-
-  override def onPause = {
-    db.close
-    super.onPause
-  }
-
-  override def onResume = {
-    reload
-    super.onResume
-  }
-
-  override def onDestroy = {
-    db.close
-    super.onDestroy
-  }
-
-  override def onActivityResult(requestCode: Int, resultCode: Int, data: Intent) {
-    if (requestCode == PICK_IMAGE && data != null && data.getData != null) {
-      // Create the image
-      create(data.getData.asInstanceOf[Uri].toString)
-
-      // Reload the view
-      reload
-    }
-  }
-
-  def imagePath(uri: Uri): String = {
-    // Create a cursor from the URI
-    val cursor = getContentResolver.query(uri, Array(android.provider.MediaStore.MediaColumns.DATA), null, null, null)
-
-    // Find the path of the first item in the cursor
-    cursor.moveToFirst
-    val imageFilePath = cursor getString 0
-    cursor.close
-
-    // Return that path
-    return imageFilePath
-  }
-
-  def create(uri: String) = {
-    // Create a new mockup
-    info(s"Creating new mockup image with URI $uri")
-    val mockupimage = new MockupImage
-    mockupimage.mockup_id := mockup_id
-    mockupimage.uri := uri
-    mockupimage.image_order := adapter.getCount
-
-    // Save the mockup
-    future { mockupimage.save } onComplete {
-      case Failure(f) => error(s"Unable to save mockupimage: ${f.toString}")
-      case Success(id) => reload
-    }
-  }
-
-  override def onConfigurationChanged (conf: Configuration) = {
-    super.onConfigurationChanged(conf)
-  }
-
-  override def onOptionsItemSelected (item: MenuItem): Boolean = {
-    item.getItemId match {
-      // Try to find an image
-      case R.id.ui_new => {
-        val intent = new Intent
-        intent setType "image/*"
-        intent setAction Intent.ACTION_GET_CONTENT
-        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
-      }
-
-      // Return to the previous activity
-      case android.R.id.home => finish
-    }
-
-    return true
-  }
 }
 
 object MockupActivity {

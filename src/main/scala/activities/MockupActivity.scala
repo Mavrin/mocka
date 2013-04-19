@@ -242,10 +242,15 @@ class MockupActivity extends SActivity with TypedActivity {
     for (uri <- m.uri.value; id <- m.id.value) {
       future { loadBitmap(uri) } onSuccess {
         case Some(b) => runOnUiThread {
-          getActionBar.hide
+          // Set the current image
           screenView setImageBitmap b
-          flipper.showNext
           current_image_id = Some(id)
+
+          // Flip to the image viewer if necessary
+          if (flipper.getDisplayedChild == 0) {
+            flipper.showNext
+            getActionBar.hide
+          }
         }
       }
     }

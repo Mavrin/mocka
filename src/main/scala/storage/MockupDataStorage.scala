@@ -11,6 +11,7 @@ trait _Mockup extends Model {
 
 trait _MockupImage extends Model {
   val mockup_id = LongField("mockup_id")
+  val image_title = StringField("image_title")
   val image_order = IntField("image_order")
   val uri = StringField("uri")
 }

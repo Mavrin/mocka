@@ -32,6 +32,9 @@ class MockupActivity extends SActivity with TypedActivity {
   var current_x = 0.f
   var current_y = 0.f
 
+  // Current state
+  var current_state = STATE_EDIT
+
   // Default database
   lazy implicit val db = new MockupOpenHelper
 
@@ -50,6 +53,7 @@ class MockupActivity extends SActivity with TypedActivity {
       getActionBar.show
       flipper.showPrevious
       current_image_id = None
+      current_state = STATE_EDIT
     } else super.onBackPressed
   }
 
@@ -103,8 +107,9 @@ class MockupActivity extends SActivity with TypedActivity {
     v.getId match {
       case R.id.screens => {
         val tinfo = info.asInstanceOf[AdapterView.AdapterContextMenuInfo]
-        menu setHeaderTitle "Edit Screen"
-        menu.add (0, 0, 0, "Remove")
+        menu setHeaderTitle "Screen"
+        menu.add (0, MENU_EDIT_TITLE, 0, "Edit title")
+        menu.add (0, MENU_REMOVE, 1, "Remove")
       }
     }
   }
@@ -116,7 +121,33 @@ class MockupActivity extends SActivity with TypedActivity {
 
     // Execute the right action for the selected menu item
     item.getItemId match {
-      case 0 => reloadAfter { removeImage(info.position) }
+      case MENU_REMOVE => reloadAfter { removeImage(info.position) }
+      case MENU_EDIT_TITLE => {
+        new AlertDialogBuilder("Edit title") {
+          // Currently selected mockup
+          val cursor = (listView getItemAtPosition info.position)
+          val mi = db.fromCursor[MockupImage](cursor.asInstanceOf[Cursor])
+
+          // Edit view
+          val et = new EditText(implicitly[Context])
+          val lp = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.FILL_PARENT,
+            ViewGroup.LayoutParams.FILL_PARENT
+          )
+          mi.image_title.value map (et.setText _)
+          et setLayoutParams lp
+          this setView et
+
+          // Create a "Save" button
+          positiveButton("Save", reloadAfter {
+            mi.image_title := et.getText.toString
+            future { mi.save }
+          })
+
+          // Create a "Cancel" button
+          negativeButton("Cancel")
+        }.show()
+      }
     }
 
     // We did something, so return true
@@ -153,6 +184,7 @@ class MockupActivity extends SActivity with TypedActivity {
   override def onOptionsItemSelected (item: MenuItem): Boolean = {
     item.getItemId match {
       case R.id.ui_new => selectImage
+      case R.id.ui_play => startMockup
       case android.R.id.home => finish
     }
 
@@ -199,6 +231,7 @@ class MockupActivity extends SActivity with TypedActivity {
     mockupimage.mockup_id := mockup_id
     mockupimage.uri := uri
     mockupimage.image_order := adapter.getCount
+    mockupimage.image_title := "New screen"
 
     // Save the mockup
     future { mockupimage.save }
@@ -256,6 +289,21 @@ class MockupActivity extends SActivity with TypedActivity {
     }
   }
 
+  // Start showing off a mockup
+  def startMockup = {
+    if (adapter.getCount > 0) {
+      // Set the state to "show"
+      current_state = STATE_SHOW
+
+      // Retrieve the first image
+      val img = (adapter getItem 0).asInstanceOf[Cursor]
+      val mimg = db.fromCursor[MockupImage](img)
+
+      // Show it
+      showImage(mimg)
+    }
+  }
+
   // List view adapter
   object adapter
   extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {
@@ -295,7 +343,8 @@ class MockupActivity extends SActivity with TypedActivity {
       imageView setImageBitmap null
 
       // Set the title
-      for (t <- mi.image_order.value) titleView setText s"Slide ${t.toString}"
+      for (title <- mi.image_title.value)
+        titleView setText title
 
       // Set the image
       for (uri <- mi.uri.value)
@@ -327,5 +376,11 @@ object MockupActivity {
   val MOCKUP_ID = "mockup_id"
   val MOCKUP_TITLE = "mockup_title"
 
+  val MENU_EDIT_TITLE = 1
+  val MENU_REMOVE = 2
+
   val PICK_IMAGE = 1
+
+  val STATE_EDIT = 1
+  val STATE_SHOW = 2
 }

@@ -79,11 +79,11 @@ class MockupListActivity extends SActivity with TypedActivity {
       val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
       val imageView = v.findViewById(R.id.preview).asInstanceOf[ImageView]
 
-      imageView setTag m.uri.value
+      imageView setTag m.image_uri.value
       imageView setImageBitmap null
 
       for (t <- m.title.value) titleView setText t
-      for (uri <- m.uri.value)
+      for (uri <- m.image_uri.value)
         lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
     }
   }

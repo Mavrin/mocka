@@ -123,7 +123,7 @@ class MockupActivity extends SActivity with TypedActivity {
     item.getItemId match {
       case MENU_REMOVE => reloadAfter { removeImage(info.position) }
       case MENU_EDIT_TITLE => {
-        new AlertDialogBuilder("Edit title") {
+        val dlg = new AlertDialogBuilder("Edit title") {
           // Currently selected mockup
           val cursor = (listView getItemAtPosition info.position)
           val mi = db.fromCursor[MockupImage](cursor.asInstanceOf[Cursor])
@@ -146,7 +146,13 @@ class MockupActivity extends SActivity with TypedActivity {
 
           // Create a "Cancel" button
           negativeButton("Cancel")
-        }.show()
+
+          // Request focus on the EditText
+          et.requestFocus
+        }.create
+
+        dlg.getWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        dlg.show
       }
     }
 
@@ -229,8 +235,7 @@ class MockupActivity extends SActivity with TypedActivity {
     // Create a new mockup image
     val mockupimage = new MockupImage
     mockupimage.mockup_id := mockup_id
-    mockupimage.uri := uri
-    mockupimage.image_order := adapter.getCount
+    mockupimage.image_uri := uri
     mockupimage.image_title := "New screen"
 
     // Save the mockup
@@ -272,7 +277,7 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Show a mockup image
   def showImage(m: MockupImage) = {
-    for (uri <- m.uri.value; id <- m.id.value) {
+    for (uri <- m.image_uri.value; id <- m.id.value) {
       future { loadBitmap(uri) } onSuccess {
         case Some(b) => runOnUiThread {
           // Set the current image
@@ -310,7 +315,7 @@ class MockupActivity extends SActivity with TypedActivity {
     val lru = new SLruCache[String, Bitmap](15)
 
     override def query =
-      db.findBy[MockupImage, Long]("mockup_id", mockup_id, "image_order")
+      db.findBy[MockupImage, Long]("mockup_id", mockup_id)
 
     def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
       // If the view tag is null, return immediately
@@ -339,7 +344,7 @@ class MockupActivity extends SActivity with TypedActivity {
       val imageView = v.findViewById(R.id.image).asInstanceOf[ImageView]
 
       // Tag the view with the current mockup image URI
-      imageView setTag mi.uri.value
+      imageView setTag mi.image_uri.value
       imageView setImageBitmap null
 
       // Set the title
@@ -347,7 +352,7 @@ class MockupActivity extends SActivity with TypedActivity {
         titleView setText title
 
       // Set the image
-      for (uri <- mi.uri.value)
+      for (uri <- mi.image_uri.value)
         lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
     }
   }

@@ -41,7 +41,7 @@ class TouchImageView(ctx: Context, attrs: AttributeSet, defStyle: Int) extends I
   def this(ctx: Context, attrs: AttributeSet) = this(ctx, attrs, 0)
 
   // Long touch handler
-  var onSelectHandler: Option[(Float, Float) => Boolean] = None
+  var onSelectHandler: Option[(Float, Float) => Unit] = None
 
   // Current coordinates
   var last_point = Point(0, 0)
@@ -65,14 +65,14 @@ class TouchImageView(ctx: Context, attrs: AttributeSet, defStyle: Int) extends I
     }
   }
 
-  this onLongClick {
+  this onClick {
     (v: View) => {
       onSelectHandler match {
         case Some(f) => {
           val n = last_point.normalized
           f(n.x, n.y)
         }
-        case None => false
+        case None => ()
       }
     }
   }
@@ -94,7 +94,7 @@ class TouchImageView(ctx: Context, attrs: AttributeSet, defStyle: Int) extends I
     }
   }
 
-  def onSelect(f: (Float, Float) => Boolean) {
+  def onSelect(f: (Float, Float) => Unit) {
     onSelectHandler = Some(f)
   }
 }

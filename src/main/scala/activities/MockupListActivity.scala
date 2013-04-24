@@ -22,6 +22,9 @@ class MockupListActivity extends SActivity with TypedActivity {
   // Current database
   lazy implicit val db = new MockupOpenHelper
 
+  // Image cache
+  lazy implicit val lruImages = new SLruCache[String, Bitmap](15)
+
   // The current list view holding mockups
   lazy val listView = findView(TR.mockups)
   class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
@@ -30,25 +33,16 @@ class MockupListActivity extends SActivity with TypedActivity {
   // List view adapter for mockup objects
   object adapter
   extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup) {
-    val lru = new SLruCache[String, Bitmap](15)
 
-    def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
+    def setImageBitmap(iv: ImageView, uri: String, bmp: Bitmap) =
       // If the view tag is null, return immediately
       if (iv.getTag != null) {
+        // Get tag
+        val tag = iv.getTag.asInstanceOf[Option[String]]
 
         // Check if the tag's URI is equal to the bitmap's URI
-        iv.getTag.asInstanceOf[Option[String]] match {
-
-          // If the tag is right, change the image
-          case Some(uriTag) if uriTag == uri => runOnUiThread {
-            bmp match {
-              case Some(b) => iv setImageBitmap b
-              case None => iv setImageBitmap null
-            }
-          }
-
-          // Do nothing if the tag is not right
-          case _ => ()
+        for (t <- tag if t == uri) runOnUiThread {
+          iv setImageBitmap bmp
         }
       }
 
@@ -83,8 +77,10 @@ class MockupListActivity extends SActivity with TypedActivity {
       imageView setImageBitmap null
 
       for (t <- m.title.value) titleView setText t
-      for (uri <- m.image_uri.value)
-        lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
+      for (uri <- m.image_uri;
+           img <- m.image;
+           bmp <- img)
+        setImageBitmap(imageView, uri, bmp)
     }
   }
 
@@ -98,10 +94,7 @@ class MockupListActivity extends SActivity with TypedActivity {
     runOnUiThread { startLoading }
 
     // Reload things
-    adapter.reload
-
-    // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread { stopLoading }}
+    for (_ <- adapter.reload) runOnUiThread { stopLoading }
   }
 
   // Show the mockup activity

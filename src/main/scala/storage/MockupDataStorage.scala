@@ -3,16 +3,27 @@ package com.github.fxthomas.mocka
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 
+import scala.concurrent._
 import org.scaloid.common._
+
+import android.graphics.Bitmap
+import BitmapHelpers._
 
 trait _Mockup extends Model {
   val title = StringField("title")
 }
 
 trait _MockupImage extends Model {
+
   val mockup_id = LongField("mockup_id")
   val image_title = StringField("image_title")
   val image_uri = StringField("image_uri")
+
+  def image(implicit ctx: Context,
+                     ec: ExecutionContext,
+                     lru: SLruCache[String, Bitmap]) =
+    for (uri <- image_uri.value)
+      yield lru(uri, loadBitmap(uri))
 }
 
 trait _MockupTransition extends Model {

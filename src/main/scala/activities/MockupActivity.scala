@@ -23,6 +23,12 @@ import org.scaloid.common._
 class MockupActivity extends SActivity with TypedActivity {
   import MockupActivity._
 
+  // Image cache
+  lazy implicit val lruImages = new SLruCache[String, Bitmap](15)
+
+  // Default database
+  lazy implicit val db = new MockupOpenHelper
+
   // Retrieve the mockup ID and title
   def mockup_id = getIntent.getLongExtra(MOCKUP_ID, 0)
   def mockup_title = getIntent.getStringExtra(MOCKUP_TITLE)
@@ -34,9 +40,6 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Current state
   var current_state = STATE_EDIT
-
-  // Default database
-  lazy implicit val db = new MockupOpenHelper
 
   // List view holding the mockup images
   lazy val listView = findView(TR.screens)
@@ -81,7 +84,7 @@ class MockupActivity extends SActivity with TypedActivity {
     }
 
     screenView onSelect {
-      (x: Float, y: Float) => { addTransition(0, x, y, 50.f); true }
+      (x: Float, y: Float) => { addTransition(0, x, y, 50.f) }
     }
 
     // Set the list adapter
@@ -111,57 +114,69 @@ class MockupActivity extends SActivity with TypedActivity {
         menu.add (0, MENU_EDIT_TITLE, 0, "Edit title")
         menu.add (0, MENU_REMOVE, 1, "Remove")
       }
+
+      case R.id.screen => {
+        menu setHeaderTitle "Select transition"
+        menu.add (1, 0, 0, "Transition 1")
+        menu.add (1, 1, 1, "Transition 2")
+      }
     }
   }
 
   // Context menu item click
   override def onContextItemSelected(item: MenuItem): Boolean = {
-    // Retrieve information about the selected list item
-    val info = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
+    item.getGroupId match {
+      case 0 => {
+        // Retrieve information about the selected list item
+        val info = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
 
-    // Execute the right action for the selected menu item
-    item.getItemId match {
-      case MENU_REMOVE => reloadAfter { removeImage(info.position) }
-      case MENU_EDIT_TITLE => {
-        val dlg = new AlertDialogBuilder("Edit title") {
-          // Currently selected mockup
-          val cursor = (listView getItemAtPosition info.position)
-          val mi = db.fromCursor[MockupImage](cursor.asInstanceOf[Cursor])
+        // Execute the right action for the selected menu item
+        item.getItemId match {
+          case MENU_REMOVE => reloadAfter { removeImage(info.position) }
+          case MENU_EDIT_TITLE => {
+            val dlg = new AlertDialogBuilder("Edit title") {
+              // Currently selected mockup
+              val cursor = (listView getItemAtPosition info.position)
+              val mi = db.fromCursor[MockupImage](cursor.asInstanceOf[Cursor])
 
-          // Edit view
-          val et = new EditText(implicitly[Context])
-          val lp = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.FILL_PARENT,
-            ViewGroup.LayoutParams.FILL_PARENT
-          )
-          mi.image_title.value map (et.setText _)
-          et setLayoutParams lp
-          this setView et
+              // Edit view
+              val et = new EditText(implicitly[Context])
+              val lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.FILL_PARENT,
+                ViewGroup.LayoutParams.FILL_PARENT
+              )
+              mi.image_title.value map (et.setText _)
+              et setLayoutParams lp
+              this setView et
 
-          // Create a "Save" button
-          positiveButton("Save", reloadAfter {
-            mi.image_title := et.getText.toString
-            future { mi.save }
-          })
+              // Create a "Save" button
+              positiveButton("Save", reloadAfter {
+                mi.image_title := et.getText.toString
+                future { mi.save }
+              })
 
-          // Create a "Cancel" button
-          negativeButton("Cancel")
+              // Create a "Cancel" button
+              negativeButton("Cancel")
 
-          // Request focus on the EditText
-          et.requestFocus
-        }.create
+              // Request focus on the EditText
+              et.requestFocus
+            }.create
 
-        dlg.getWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-        dlg.show
+            dlg.getWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+            dlg.show
+          }
+        }
+
+        // We did something, so return true
+        return true
       }
-    }
 
-    // We did something, so return true
-    return true
+      case _ => return false
+    }
   }
 
   override def onPause = {
-    saveTitle onComplete { case _ => db.close }
+    for (_ <- saveTitle) db.close
     super.onPause
   }
 
@@ -171,7 +186,7 @@ class MockupActivity extends SActivity with TypedActivity {
   }
 
   override def onDestroy = {
-    saveTitle onComplete { case _ => db.close }
+    for (_ <-saveTitle) db.close
     super.onDestroy
   }
 
@@ -277,19 +292,19 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Show a mockup image
   def showImage(m: MockupImage) = {
-    for (uri <- m.image_uri.value; id <- m.id.value) {
-      future { loadBitmap(uri) } onSuccess {
-        case Some(b) => runOnUiThread {
-          // Set the current image
-          screenView setImageBitmap b
-          current_image_id = Some(id)
+    for (fimg <- m.image;
+         img <- fimg;
+         id <- m.id.value)
+      runOnUiThread {
 
-          // Flip to the image viewer if necessary
-          if (flipper.getDisplayedChild == 0) {
-            flipper.showNext
-            getActionBar.hide
-          }
-        }
+      // Set the current image
+      screenView setImageBitmap img
+      current_image_id = Some(id)
+
+      // Flip to the image viewer if necessary
+      if (flipper.getDisplayedChild == 0) {
+        flipper.showNext
+        getActionBar.hide
       }
     }
   }
@@ -312,28 +327,19 @@ class MockupActivity extends SActivity with TypedActivity {
   // List view adapter
   object adapter
   extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {
-    val lru = new SLruCache[String, Bitmap](15)
 
     override def query =
       db.findBy[MockupImage, Long]("mockup_id", mockup_id)
 
-    def setImageBitmap(iv: ImageView, uri: String, bmp: Option[Bitmap]) =
+    def setImageBitmap(iv: ImageView, uri: String, bmp: Bitmap) =
       // If the view tag is null, return immediately
       if (iv.getTag != null) {
+        // Get tag
+        val tag = iv.getTag.asInstanceOf[Option[String]]
 
         // Check if the tag's URI is equal to the bitmap's URI
-        iv.getTag.asInstanceOf[Option[String]] match {
-
-          // If the tag is right, change the image
-          case Some(uriTag) if uriTag == uri => runOnUiThread {
-            bmp match {
-              case Some(b) => iv setImageBitmap b
-              case None => iv setImageBitmap null
-            }
-          }
-
-          // Do nothing if the tag is not right
-          case _ => ()
+        for (t <- tag if t == uri) runOnUiThread {
+          iv setImageBitmap bmp
         }
       }
 
@@ -352,8 +358,10 @@ class MockupActivity extends SActivity with TypedActivity {
         titleView setText title
 
       // Set the image
-      for (uri <- mi.image_uri.value)
-        lru(uri)(setImageBitmap(imageView, _, _), loadBitmap _)
+      for (img <- mi.image;
+           uri <- mi.image_uri;
+           bmp <- img)
+        setImageBitmap(imageView, uri, bmp)
     }
   }
 
@@ -366,10 +374,7 @@ class MockupActivity extends SActivity with TypedActivity {
     }
 
     // Reload things
-    adapter.reload
-
-    // Stop the loading spinner when it's done
-    .onComplete { case _ => runOnUiThread { stopLoading }}
+    for (_ <- adapter.reload) runOnUiThread { stopLoading }
   }
 
   // Start and stop the loading Window spinner

@@ -56,6 +56,12 @@ abstract class Field[T](val sqlName: String, val sqlType: String)(implicit val m
 
   // Store the field value inside the ContentValues object, if exists
   def >>(cv: ContentValues) = for (v <- value) toContentValues(cv, sqlName, v)
+
+  // Map function to be able to use `for`
+  def map[B](f: T => B) = value map f
+  def flatMap[B](f: T => Option[B]) = value flatMap f
+  def filter(f: T => Boolean) = value filter f
+  def foreach = value.foreach _
 }
 
 case class StringField(override val sqlName: String, override val sqlType: String = "TEXT")(implicit override val model: Model)
@@ -135,11 +141,8 @@ trait Model {
   }
 
   def remove(implicit db: SSQLiteOpenHelper) = {
-    id.value match {
-      case Some(i) =>
-        db.rw.delete(tableName, "_id = ?", Array(i.toString))
-      case None => ()
-    }
+    for (i <- id)
+      db.rw.delete(tableName, "_id = ?", Array(i.toString))
   }
 
   // Fill a model from a Cursor

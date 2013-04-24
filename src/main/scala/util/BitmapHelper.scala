@@ -6,6 +6,8 @@ import android.net.Uri
 import android.content.Context
 
 object BitmapHelpers {
+  class InvalidBitmapException(uri: String) extends Exception(uri)
+
   def calculateInSampleSize(opt: BitmapFactory.Options, reqWidth: Int, reqHeight: Int) = {
     val height = opt.outHeight
     val width = opt.outWidth
@@ -26,28 +28,30 @@ object BitmapHelpers {
 
   // Load a bitmap
   def loadBitmap(t: String)(implicit ctx: Context) = {
-    Option(Uri.parse(t)) map { uri =>
-      // Decode bitmap size
-      val opt = new BitmapFactory.Options
-      opt.inJustDecodeBounds = true
-      val is1 = ctx.getContentResolver.openInputStream(uri)
-      BitmapFactory.decodeStream(is1, null, opt)
-      is1.close
+    // Parse URI
+    val uri = Uri.parse(t)
 
-      // Find out the size of the screen
-      val w = ctx.getResources.getDisplayMetrics.widthPixels
-      val h = ctx.getResources.getDisplayMetrics.heightPixels
-      val s = if (w < h) h else w
+    // Decode bitmap size
+    val opt = new BitmapFactory.Options
+    opt.inJustDecodeBounds = true
+    val is1 = ctx.getContentResolver.openInputStream(uri)
+    BitmapFactory.decodeStream(is1, null, opt)
+    is1.close
 
-      // Decode the full image
-      opt.inSampleSize = calculateInSampleSize(opt, s, s)
-      opt.inJustDecodeBounds = false
-      val is2 = ctx.getContentResolver.openInputStream(uri)
-      val bmp = BitmapFactory.decodeStream(is2, null, opt)
-      is2.close
+    // Find out the size of the screen
+    val w = ctx.getResources.getDisplayMetrics.widthPixels
+    val h = ctx.getResources.getDisplayMetrics.heightPixels
+    val s = if (w < h) h else w
 
-      // Return the downscaled image
-      bmp
-    }
+    // Decode the full image
+    opt.inSampleSize = calculateInSampleSize(opt, s, s)
+    opt.inJustDecodeBounds = false
+    val is2 = ctx.getContentResolver.openInputStream(uri)
+    val bmp = BitmapFactory.decodeStream(is2, null, opt)
+    is2.close
+
+    // Return the downscaled image
+    if (bmp == null) throw new InvalidBitmapException(t)
+    else bmp
   }
 }

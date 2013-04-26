@@ -96,6 +96,15 @@ extends Field[java.lang.Long](sqlName, sqlType) {
   override def toContentValues(c: ContentValues, cid: String, v: java.lang.Long) = c.put(cid, v: java.lang.Long)
 }
 
+case class ForeignField[M <: Model : ClassTag](override val sqlName: String, override val sqlType: String = "INTEGER")(implicit override val model: Model)
+extends Field[java.lang.Long](sqlName, sqlType) {
+  import SSQLiteOpenHelper.Implicits._
+
+  override def fromCursor(c: Cursor, cid: Int) = c getLong cid
+  override def fromContentValues(c: ContentValues, cid: String) = c getAsLong cid
+  override def toContentValues(c: ContentValues, cid: String, v: java.lang.Long) = c.put(cid, v: java.lang.Long)
+}
+
 trait Model {
 
   // List of fields
@@ -204,9 +213,6 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     db.execSQL(s"CREATE TABLE `$schemaName` ($schemaString);")
   }
 
-  def tableName[M <: Model : ClassTag] =
-    create[M].tableName
-
   // Run a query
   def query[M <: Model : ClassTag]
   (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
@@ -240,18 +246,6 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
   // Find a model by ID
   def findById[M <: Model : ClassTag](cid: Long, orderBy: String = null) =
     query[M](null, s"_id = ?", Array(cid.toString), orderBy)
-
-  // Retrieve all the elements inside a cursor
-  def retrieve[M <: Model : ClassTag](q: Cursor) = {
-    // Move the Cursor to the first position
-    q.moveToFirst
-
-    // Get all the elements inside the cursor and make a list
-    (0 to q.getCount-1).map { p =>
-      q moveToPosition p
-      q.as[M]
-    }.toList
-  }
 }
 
 // Some useful implicit conversions
@@ -260,9 +254,31 @@ object SSQLiteOpenHelper {
     def create[T <: Model : ClassTag]: T =
       classTag[T].runtimeClass.newInstance.asInstanceOf[T]
 
+    def tableName[M <: Model : ClassTag] =
+      create[M].tableName
+
+    def fields[M <: Model : ClassTag] =
+      create[M].fields
+
     class SCursor(c: Cursor) {
+      def get[T <: Model : ClassTag](p: Int): T = {
+        c moveToPosition p
+        c.as[T]
+      }
+
       def as[T <: Model : ClassTag]: T =
         create[T] << c
+
+      def asList[M <: Model : ClassTag]: List[M] = {
+        // Move the Cursor to the first position
+        c.moveToFirst
+
+        // Get all the elements inside the cursor and make a list
+        (0 to c.getCount-1).map { p =>
+          c moveToPosition p
+          c.as[M]
+        }.toList
+      }
     }
 
     implicit def richCursorConversion(c: Cursor): SCursor = new SCursor(c)

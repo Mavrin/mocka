@@ -49,8 +49,8 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     override def query = {
       // Find out the table names
-      val nMockup = db.tableName[Mockup]
-      val nMockupImage = db.tableName[MockupImage]
+      val nMockup = tableName[Mockup]
+      val nMockupImage = tableName[MockupImage]
 
       // We're doing an inner join to find the first image
       val nJoinedTableName =
@@ -63,7 +63,7 @@ class MockupListActivity extends SActivity with TypedActivity {
         Array("*", "m._id as _id"), // Necessary to be able to see _id
         null,
         null,
-        "_id",                    // Group by m._id
+        "_id",                      // Group by m._id
         null,
         null,
         null

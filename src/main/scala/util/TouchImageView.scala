@@ -6,10 +6,11 @@ import android.view._
 import android.content._
 import android.util._
 
-import org.scaloid.common._
-
 
 class TouchImageView(ctx: Context, attrs: AttributeSet, defStyle: Int) extends ImageView(ctx, attrs, defStyle) {
+
+  // Set the image view as clickable
+  setClickable(true)
 
   case class Point(x: Float, y: Float) {
     lazy val normalized = {
@@ -47,34 +48,28 @@ class TouchImageView(ctx: Context, attrs: AttributeSet, defStyle: Int) extends I
   var last_point = Point(0, 0)
   var finger_down = false
 
-  // Long press on the screen adds a new interaction at that position
-  this onTouch {
-    (v: View, ev: MotionEvent) => {
-      // True if the finger is down
-      finger_down  = !(ev.getActionMasked != MotionEvent.ACTION_DOWN &&
-                       ev.getActionMasked != MotionEvent.ACTION_MOVE)
+  // Look at the position on touch events
+  override def onTouchEvent(ev: MotionEvent) = {
+    // True if the finger is down
+    finger_down  = !(ev.getActionMasked != MotionEvent.ACTION_DOWN &&
+                     ev.getActionMasked != MotionEvent.ACTION_MOVE)
 
-      // Last touched point
-      last_point = Point(ev.getX, ev.getY)
+    // Last touched point
+    last_point = Point(ev.getX, ev.getY)
 
-      // Invalidate the view
-      invalidate
+    // Invalidate the view
+    invalidate
 
-      // Only continue if we touched inside the image
-      !finger_down || !last_point.inside
-    }
-  }
-
-  this onClick {
-    (v: View) => {
-      onSelectHandler match {
-        case Some(f) => {
-          val n = last_point.normalized
-          f(n.x, n.y)
-        }
-        case None => ()
+    // Only continue if we touched inside the image
+    if (!finger_down && last_point.inside) {
+      for (f <- onSelectHandler) {
+        val n = last_point.normalized
+        f(n.x, n.y)
       }
     }
+
+    // Continue processing events
+    super.onTouchEvent(ev)
   }
 
   override def onDraw(canvas: Canvas) = {

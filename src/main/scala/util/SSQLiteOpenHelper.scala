@@ -47,12 +47,16 @@ abstract class Field[T](val sqlName: String, val sqlType: String)(implicit val m
   protected def toContentValues (c: ContentValues, cid: String, v: T)
 
   // Store something inside the field from a ContentValues object
-  def <<(cv: ContentValues) =
+  def <<(cv: ContentValues) = {
     if (inContentValues(cv)) this := fromContentValues(cv, sqlName)
+    this
+  }
 
   // Store something from a cursor
-  def <<(c: Cursor) =
+  def <<(c: Cursor) = {
     for (cid <- inCursor(c)) this := fromCursor(c, cid)
+    this
+  }
 
   // Store the field value inside the ContentValues object, if exists
   def >>(cv: ContentValues) = for (v <- value) toContentValues(cv, sqlName, v)
@@ -146,7 +150,10 @@ trait Model {
   }
 
   // Fill a model from a Cursor
-  def <<(c: Cursor) = for (f <- fields) f << c
+  def <<(c: Cursor): this.type = {
+    for (f <- fields) f << c
+    this
+  }
 
   // Fill a ContentValues object with the model
   def >>(cv: ContentValues) = for (f <- fields) f >> cv
@@ -168,6 +175,9 @@ abstract class SSQLiteOpenHelper(
   (implicit ctx: Context)
 extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
+  // Import implicits
+  import SSQLiteOpenHelper.Implicits._
+
   // Table name
   val helperName = this.getClass.getName.replace(".","_").replace("$","__")
 
@@ -177,22 +187,6 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
   // Common shortcuts
   def rw = getWritableDatabase
   def ro = getReadableDatabase
-
-  // Create a new Model object
-  def create[M <: Model : ClassTag]: M = { classTag[M].runtimeClass.newInstance.asInstanceOf[M] }
-
-  // Create a new Model object from a Cursor
-  def fromCursor[M <: Model : ClassTag](c: Cursor):M = {
-
-    // Create a new model
-    val model = create[M]
-
-    // Fill the model
-    model << c
-
-    // Return that model
-    return model
-  }
 
   def createTable[M <: Model : ClassTag](db: SQLiteDatabase = rw) = {
     // Create a dummy object with empty fields
@@ -255,7 +249,22 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     // Get all the elements inside the cursor and make a list
     (0 to q.getCount-1).map { p =>
       q moveToPosition p
-      fromCursor[M](q)
+      q.as[M]
     }.toList
+  }
+}
+
+// Some useful implicit conversions
+object SSQLiteOpenHelper {
+  object Implicits {
+    def create[T <: Model : ClassTag]: T =
+      classTag[T].runtimeClass.newInstance.asInstanceOf[T]
+
+    class SCursor(c: Cursor) {
+      def as[T <: Model : ClassTag]: T =
+        create[T] << c
+    }
+
+    implicit def richCursorConversion(c: Cursor): SCursor = new SCursor(c)
   }
 }

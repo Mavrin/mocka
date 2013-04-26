@@ -17,6 +17,7 @@ import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
 
 import BitmapHelpers._
+import SSQLiteOpenHelper.Implicits._
 
 import org.scaloid.common._
 
@@ -93,7 +94,7 @@ class MockupActivity extends SActivity with TypedActivity {
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
         val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
-        showImage (db.fromCursor[MockupImage](cursor))
+        showImage (cursor.as[MockupImage])
       }
     }
 
@@ -137,7 +138,7 @@ class MockupActivity extends SActivity with TypedActivity {
             val dlg = new AlertDialogBuilder("Edit title") {
               // Currently selected mockup
               val cursor = (listView getItemAtPosition info.position)
-              val mi = db.fromCursor[MockupImage](cursor.asInstanceOf[Cursor])
+              val mi = cursor.asInstanceOf[Cursor].as[MockupImage]
 
               // Edit view
               val et = new EditText(implicitly[Context])
@@ -262,7 +263,7 @@ class MockupActivity extends SActivity with TypedActivity {
     val cursor = (listView getItemAtPosition position).asInstanceOf[Cursor]
 
     // Remove the mockup image if the cursor is not null
-    future { db.fromCursor[MockupImage](cursor).remove }
+    future { cursor.as[MockupImage].remove }
   }
 
   def saveTitle = {
@@ -317,7 +318,7 @@ class MockupActivity extends SActivity with TypedActivity {
 
       // Retrieve the first image
       val img = (adapter getItem 0).asInstanceOf[Cursor]
-      val mimg = db.fromCursor[MockupImage](img)
+      val mimg = img.as[MockupImage]
 
       // Show it
       showImage(mimg)

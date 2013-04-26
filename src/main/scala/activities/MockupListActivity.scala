@@ -11,6 +11,7 @@ import android.graphics._
 import android.net._
 
 import BitmapHelpers._
+import SSQLiteOpenHelper.Implicits._
 
 import scala.concurrent._
 import scala.util.{Failure, Success}
@@ -118,7 +119,7 @@ class MockupListActivity extends SActivity with TypedActivity {
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
         val cursor = (adapter getItem position).asInstanceOf[Cursor]
-        showMockup (db.fromCursor[Mockup](cursor))
+        showMockup (cursor.as[Mockup])
       }
     }
 
@@ -150,7 +151,7 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     // Currently selected mockup
     val cursor = (adapter getItem tinfo.position).asInstanceOf[Cursor]
-    val model = db.fromCursor[Mockup](cursor)
+    val model = cursor.as[Mockup]
 
     // Run the action
     item.getItemId match {

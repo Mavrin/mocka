@@ -11,12 +11,17 @@ import scala.concurrent._
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
+import SSQLiteOpenHelper.Implicits._
+
 import org.scaloid.common._
 
 abstract class SModelAdapter[T <: Model : ClassTag]
   (res: Int)
   (implicit db: SSQLiteOpenHelper, ctx: Context, exc: ExecutionContext)
 extends CursorAdapter(ctx, null, 0) {
+
+  // Implicit conversion from Cursor to model objects
+  implicit def cursor2model(c: Cursor): T = c.as[T]
 
   // Reload the model
   def reload: Future[Cursor] = {
@@ -46,13 +51,8 @@ extends CursorAdapter(ctx, null, 0) {
   private val inflater = LayoutInflater from ctx
 
   // Bind the view's data
-  override def bindView(v: View, lctx: Context, c: Cursor) = {
-    // Create the model
-    val model = db.fromCursor[T](c)
-
-    // Update the view
-    runOnUiThread { update(v, lctx, model) }
-  }
+  override def bindView(v: View, lctx: Context, c: Cursor) =
+    runOnUiThread { update(v, lctx, c) }
 
   // Create a new view
   override def newView(lctx: Context, c: Cursor, parent: ViewGroup) =

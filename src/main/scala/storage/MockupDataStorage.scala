@@ -15,7 +15,7 @@ trait _Mockup extends Model {
 
 trait _MockupImage extends Model {
 
-  val mockup_id = LongField("mockup_id")
+  val mockup_id = ForeignField[Mockup]("mockup_id")
   val image_title = StringField("image_title")
   val image_uri = StringField("image_uri")
 
@@ -27,9 +27,9 @@ trait _MockupImage extends Model {
 }
 
 trait _MockupTransition extends Model {
-  val mockup_id = LongField("mockup_id")
-  val image_from = LongField("image_from")
-  val image_to = LongField("image_to")
+  val mockup_id = ForeignField[Mockup]("mockup_id")
+  val image_from = ForeignField[MockupImage]("image_from")
+  val image_to = ForeignField[MockupImage]("image_to")
   val x = FloatField("x")
   val y = FloatField("y")
   val size = FloatField("size")

@@ -39,4 +39,18 @@ extends Field[java.lang.Long](sqlName, sqlType) {
   override def fromCursor(c: Cursor, cid: Int) = c getLong cid
   override def fromContentValues(c: ContentValues, cid: String) = c getAsLong cid
   override def toContentValues(c: ContentValues, cid: String, v: java.lang.Long) = c.put(cid, v: java.lang.Long)
+
+  def get(implicit db: SSQLiteOpenHelper) =
+    for (v <- value)
+      yield db.findById[M](v).as[M]
+
+  // Map function to be able to use `for`
+  def map[B](f: M => B)(implicit db: SSQLiteOpenHelper) =
+    get map f
+  def flatMap[B](f: M => Option[B])(implicit db: SSQLiteOpenHelper) =
+    get flatMap f
+  def filter(f: M => Boolean)(implicit db: SSQLiteOpenHelper) =
+    get filter f
+  def foreach(implicit db: SSQLiteOpenHelper) =
+    get.foreach _
 }

@@ -325,46 +325,6 @@ class MockupActivity extends SActivity with TypedActivity {
     }
   }
 
-  // List view adapter
-  object adapter
-  extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {
-
-    override def query =
-      db.findBy[MockupImage, Long]("mockup_id", mockup_id)
-
-    def setImageBitmap(iv: ImageView, uri: String, bmp: Bitmap) =
-      // If the view tag is null, return immediately
-      if (iv.getTag != null) {
-        // Get tag
-        val tag = iv.getTag.asInstanceOf[Option[String]]
-
-        // Check if the tag's URI is equal to the bitmap's URI
-        for (t <- tag if t == uri) runOnUiThread {
-          iv setImageBitmap bmp
-        }
-      }
-
-    def update(v: View, context: Context, mi: MockupImage) {
-
-      // Find the text view
-      val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
-      val imageView = v.findViewById(R.id.image).asInstanceOf[ImageView]
-
-      // Tag the view with the current mockup image URI
-      imageView setTag mi.image_uri.value
-      imageView setImageBitmap null
-
-      // Set the title
-      for (title <- mi.image_title.value)
-        titleView setText title
-
-      // Set the image
-      for (img <- mi.image;
-           uri <- mi.image_uri;
-           bmp <- img)
-        setImageBitmap(imageView, uri, bmp)
-    }
-  }
 
   // Reload the mockups
   def reload = {
@@ -381,6 +341,25 @@ class MockupActivity extends SActivity with TypedActivity {
   // Start and stop the loading Window spinner
   def startLoading = setProgressBarIndeterminateVisibility(true)
   def stopLoading = setProgressBarIndeterminateVisibility(false)
+
+  // List view adapter for MockupImage objects
+  object adapter
+  extends SModelAdapter[MockupImage](R.layout.listitem_mockupimage) {
+
+    override def query =
+      db.findBy[MockupImage, Long]("mockup_id", mockup_id)
+
+    def update(v: View, context: Context, mi: MockupImage) {
+
+      // Find the text view
+      val vTitle = v.findViewById(R.id.title).asInstanceOf[TextView]
+      val vImage = v.findViewById(R.id.image).asInstanceOf[AsyncImageView]
+
+      // Set the title and image
+      for (title <- mi.image_title.value) vTitle setText title
+      for (uri <- mi.image_uri) vImage setImageUri uri
+    }
+  }
 }
 
 object MockupActivity {

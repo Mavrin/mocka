@@ -35,18 +35,6 @@ class MockupListActivity extends SActivity with TypedActivity {
   object adapter
   extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup) {
 
-    def setImageBitmap(iv: ImageView, uri: String, bmp: Bitmap) =
-      // If the view tag is null, return immediately
-      if (iv.getTag != null) {
-        // Get tag
-        val tag = iv.getTag.asInstanceOf[Option[String]]
-
-        // Check if the tag's URI is equal to the bitmap's URI
-        for (t <- tag if t == uri) runOnUiThread {
-          iv setImageBitmap bmp
-        }
-      }
-
     override def query = {
       // Find out the table names
       val nMockup = tableName[Mockup]
@@ -71,17 +59,13 @@ class MockupListActivity extends SActivity with TypedActivity {
     }
 
     def update(v: View, context: Context, m: MockupWithImage) {
-      val titleView = v.findViewById(R.id.title).asInstanceOf[TextView]
-      val imageView = v.findViewById(R.id.preview).asInstanceOf[ImageView]
+      // Find the text view
+      val vTitle = v.findViewById(R.id.title).asInstanceOf[TextView]
+      val vImage = v.findViewById(R.id.preview).asInstanceOf[AsyncImageView]
 
-      imageView setTag m.image_uri.value
-      imageView setImageBitmap null
-
-      for (t <- m.title.value) titleView setText t
-      for (uri <- m.image_uri;
-           img <- m.image;
-           bmp <- img)
-        setImageBitmap(imageView, uri, bmp)
+      // Set the title and image
+      for (title <- m.image_title.value) vTitle setText title
+      for (uri <- m.image_uri) vImage setImageUri uri
     }
   }
 

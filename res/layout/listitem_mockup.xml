@@ -4,7 +4,7 @@
        android:layout_width="match_parent"
        android:layout_height="wrap_content">
 
-       <ImageView
+       <com.github.fxthomas.mocka.AsyncImageView
          android:id="@+id/preview"
          android:layout_width="match_parent"
          android:layout_height="100dp"

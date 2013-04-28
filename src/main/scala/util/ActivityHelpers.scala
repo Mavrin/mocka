@@ -2,6 +2,7 @@ package com.github.fxthomas.mocka
 
 import android.app.ProgressDialog
 import android.content.Context
+import android.widget.ListView
 
 import scala.concurrent._
 import ExecutionContext.Implicits.global
@@ -23,4 +24,7 @@ object ActivityHelpers {
     // Dismiss the spinner on completion
     work onComplete { case _ => runOnUiThread { spinner.dismiss } }
   }
+
+  class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
+  @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
 }

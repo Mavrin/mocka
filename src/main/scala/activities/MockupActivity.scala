@@ -16,13 +16,13 @@ import scala.concurrent._
 import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
 
-import BitmapHelpers._
 import SSQLiteOpenHelper.Implicits._
 
 import org.scaloid.common._
 
 class MockupActivity extends SActivity with TypedActivity {
   import MockupActivity._
+  import ActivityHelpers._
 
   // Image cache
   lazy implicit val lruImages = new SLruCache[String, Bitmap](15)
@@ -35,9 +35,7 @@ class MockupActivity extends SActivity with TypedActivity {
   def mockup_title = getIntent.getStringExtra(MOCKUP_TITLE)
 
   // Currently displayed image
-  var current_image_id: Option[Long] = None
-  var current_x = 0.f
-  var current_y = 0.f
+  var current_image: Option[MockupImage] = None
 
   // Current state
   var current_state = STATE_EDIT
@@ -46,17 +44,13 @@ class MockupActivity extends SActivity with TypedActivity {
   lazy val listView = findView(TR.screens)
   lazy val screenView = findView(TR.screen)
   lazy val flipper = findView(TR.flipper)
-  class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
-  @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
-
-  // Title text editor
   lazy val titleTextView = new EditText(implicitly[Context])
 
   override def onBackPressed() {
     if (flipper.getDisplayedChild > 0) {
       getActionBar.show
       flipper.showPrevious
-      current_image_id = None
+      current_image = None
       current_state = STATE_EDIT
     } else super.onBackPressed
   }
@@ -135,36 +129,16 @@ class MockupActivity extends SActivity with TypedActivity {
         item.getItemId match {
           case MENU_REMOVE => reloadAfter { removeImage(info.position) }
           case MENU_EDIT_TITLE => {
-            val dlg = new AlertDialogBuilder("Edit title") {
-              // Currently selected mockup
-              val cursor = (listView getItemAtPosition info.position)
-              val mi = cursor.asInstanceOf[Cursor].as[MockupImage]
+            // Currently selected mockup
+            val cursor = (listView getItemAtPosition info.position)
+            val mi = cursor.asInstanceOf[Cursor].as[MockupImage]
 
-              // Edit view
-              val et = new EditText(implicitly[Context])
-              val lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.FILL_PARENT,
-                ViewGroup.LayoutParams.FILL_PARENT
-              )
-              mi.image_title.value map (et.setText _)
-              et setLayoutParams lp
-              this setView et
-
-              // Create a "Save" button
-              positiveButton("Save", reloadAfter {
-                mi.image_title := et.getText.toString
-                future { mi.save }
-              })
-
-              // Create a "Cancel" button
-              negativeButton("Cancel")
-
-              // Request focus on the EditText
-              et.requestFocus
-            }.create
-
-            dlg.getWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
-            dlg.show
+            for (t <- mi.image_title) InputDialog.show("Edit title", t) {
+              (s: String) => {
+                mi.image_title := s
+                reloadAfter { future { mi.save } }
+              }
+            }
           }
         }
 
@@ -231,17 +205,21 @@ class MockupActivity extends SActivity with TypedActivity {
     // Inform the user
     info(s"Saving transition for $mockup_id (at $x, $y)")
 
-    // Create the transition
-    val v = new MockupTransition
-    v.mockup_id := mockup_id
-    v.image_from := current_image_id.get
-    v.image_to := to
-    v.x := x
-    v.y := y
-    v.size := size
+    for (i <- current_image;
+         id <- i.id) {
 
-    // Saave the transition
-    future { v.save }
+      // Create the transition
+      val v = new MockupTransition
+      v.mockup_id := mockup_id
+      v.image_from := id
+      v.image_to := to
+      v.x := x
+      v.y := y
+      v.size := size
+
+      // Saave the transition
+      future { v.save }
+    }
   }
 
   def addImage(uri: String) = {
@@ -293,14 +271,12 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Show a mockup image
   def showImage(m: MockupImage) = {
-    for (fimg <- m.image;
-         img <- fimg;
-         id <- m.id.value)
-      runOnUiThread {
+    for (fimg <- m.image; img <- fimg;
+         id <- m.id.value) runOnUiThread {
 
       // Set the current image
       screenView setImageBitmap img
-      current_image_id = Some(id)
+      current_image = Some(m)
 
       // Flip to the image viewer if necessary
       if (flipper.getDisplayedChild == 0) {

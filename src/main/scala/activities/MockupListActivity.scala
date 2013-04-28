@@ -10,7 +10,6 @@ import android.database.Cursor
 import android.graphics._
 import android.net._
 
-import BitmapHelpers._
 import SSQLiteOpenHelper.Implicits._
 
 import scala.concurrent._
@@ -20,6 +19,9 @@ import ExecutionContext.Implicits.global
 import org.scaloid.common._
 
 class MockupListActivity extends SActivity with TypedActivity {
+  import MockupListActivity._
+  import ActivityHelpers._
+
   // Current database
   lazy implicit val db = new MockupOpenHelper
 
@@ -28,8 +30,6 @@ class MockupListActivity extends SActivity with TypedActivity {
 
   // The current list view holding mockups
   lazy val listView = findView(TR.mockups)
-  class RichListView[V <: ListView](val basis: V) extends TraitAdapterView[V]
-  @inline implicit def listView2RichListView[V <: ListView](lv: V) = new RichListView[V](lv)
 
   // List view adapter for mockup objects
   object adapter
@@ -64,7 +64,7 @@ class MockupListActivity extends SActivity with TypedActivity {
       val vImage = v.findViewById(R.id.preview).asInstanceOf[AsyncImageView]
 
       // Set the title and image
-      for (title <- m.image_title.value) vTitle setText title
+      for (title <- m.title) vTitle setText title
       for (uri <- m.image_uri) vImage setImageUri uri
     }
   }
@@ -190,4 +190,7 @@ class MockupListActivity extends SActivity with TypedActivity {
       return true
     }
   }
+}
+
+object MockupListActivity {
 }

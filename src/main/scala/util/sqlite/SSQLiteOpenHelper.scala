@@ -20,7 +20,7 @@ abstract class SSQLiteOpenHelper(
 extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
   // Import implicits
-  import SSQLiteOpenHelper.Implicits._
+  import SCursor.Implicits._
 
   // Table name
   val helperName = this.getClass.getName.replace(".","_").replace("$","__")
@@ -34,7 +34,7 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
   def createTable[M <: Model : ClassTag](db: SQLiteDatabase = rw) = {
     // Create a dummy object with empty fields
-    val dummy = create[M]
+    val dummy = Model.create[M]
 
     // Read all the fieldz!
     val schema = dummy.fields map
@@ -53,12 +53,12 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
   (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
 
     // Create a dummy object with empty field
-    val dummy = create[M]
+    val dummy = Model.create[M]
     val table = dummy.tableName
     val fieldOpt = if (fields != null) fields map { _.sqlName } else null
 
     // Execute query
-    ro.query(
+    SCursor[M](ro.query(
       true,
       dummy.tableName,
       fieldOpt,
@@ -68,7 +68,7 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
       null,
       orderBy,
       limit
-    )
+    ))
   }
 
   // Retrieve all the elements in DB
@@ -81,41 +81,4 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
   // Find a model by ID
   def findById[M <: Model : ClassTag](cid: Long, orderBy: String = null) =
     query[M](null, s"_id = ?", Array(cid.toString), orderBy)
-}
-
-// Some useful implicit conversions
-object SSQLiteOpenHelper {
-  object Implicits {
-    def create[T <: Model : ClassTag]: T =
-      classTag[T].runtimeClass.newInstance.asInstanceOf[T]
-
-    def tableName[M <: Model : ClassTag] =
-      create[M].tableName
-
-    def fields[M <: Model : ClassTag] =
-      create[M].fields
-
-    class SCursor(c: Cursor) {
-      def get[T <: Model : ClassTag](p: Int): T = {
-        c moveToPosition p
-        c.as[T]
-      }
-
-      def as[T <: Model : ClassTag]: T =
-        create[T] << c
-
-      def asList[M <: Model : ClassTag]: List[M] = {
-        // Move the Cursor to the first position
-        c.moveToFirst
-
-        // Get all the elements inside the cursor and make a list
-        (0 to c.getCount-1).map { p =>
-          c moveToPosition p
-          c.as[M]
-        }.toList
-      }
-    }
-
-    implicit def richCursorConversion(c: Cursor): SCursor = new SCursor(c)
-  }
 }

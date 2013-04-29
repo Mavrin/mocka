@@ -10,8 +10,6 @@ import android.database.Cursor
 import android.graphics._
 import android.net._
 
-import SSQLiteOpenHelper.Implicits._
-
 import scala.concurrent._
 import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
@@ -21,6 +19,7 @@ import org.scaloid.common._
 class MockupListActivity extends SActivity with TypedActivity {
   import MockupListActivity._
   import ActivityHelpers._
+  import SCursor.Implicits._
 
   // Current database
   lazy implicit val db = new MockupOpenHelper
@@ -37,15 +36,15 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     override def query = {
       // Find out the table names
-      val nMockup = tableName[Mockup]
-      val nMockupImage = tableName[MockupImage]
+      val nMockup = Model.tableName[Mockup]
+      val nMockupImage = Model.tableName[MockupImage]
 
       // We're doing an inner join to find the first image
       val nJoinedTableName =
         s"$nMockup m LEFT OUTER JOIN $nMockupImage mi ON m._id = mi.mockup_id"
 
       // Run the query
-      db.ro.query(
+      SCursor[MockupWithImage](db.ro.query(
         true,
         nJoinedTableName,
         Array("*", "m._id as _id"), // Necessary to be able to see _id
@@ -55,7 +54,7 @@ class MockupListActivity extends SActivity with TypedActivity {
         null,
         null,
         null
-      )
+      ))
     }
 
     def update(v: View, context: Context, m: MockupWithImage) {
@@ -102,8 +101,7 @@ class MockupListActivity extends SActivity with TypedActivity {
     listView setAdapter adapter
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
-        val cursor = (adapter getItem position).asInstanceOf[Cursor]
-        showMockup (cursor.as[Mockup])
+        showMockup(parent.get[Mockup](position))
       }
     }
 
@@ -134,8 +132,7 @@ class MockupListActivity extends SActivity with TypedActivity {
     val tinfo = item.getMenuInfo.asInstanceOf[AdapterView.AdapterContextMenuInfo]
 
     // Currently selected mockup
-    val cursor = (adapter getItem tinfo.position).asInstanceOf[Cursor]
-    val model = cursor.as[Mockup]
+    val model = listView.get[Mockup](tinfo.position)
 
     // Run the action
     item.getItemId match {

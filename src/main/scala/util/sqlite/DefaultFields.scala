@@ -34,15 +34,25 @@ extends Field[java.lang.Long](sqlName, sqlType) {
 
 case class ForeignField[M <: Model : ClassTag](override val sqlName: String, override val sqlType: String = "INTEGER")(implicit override val model: Model)
 extends Field[java.lang.Long](sqlName, sqlType) {
-  import SSQLiteOpenHelper.Implicits._
+  import SCursor.Implicits._
 
   override def fromCursor(c: Cursor, cid: Int) = c getLong cid
   override def fromContentValues(c: ContentValues, cid: String) = c getAsLong cid
   override def toContentValues(c: ContentValues, cid: String, v: java.lang.Long) = c.put(cid, v: java.lang.Long)
 
-  def get(implicit db: SSQLiteOpenHelper) =
-    for (v <- value)
-      yield db.findById[M](v).as[M]
+  protected var __underlying: Option[M] = None
+
+  def get(implicit db: SSQLiteOpenHelper): Option[M] = {
+    __underlying match {
+      case Some(m) => Some(m)
+      case None => {
+        __underlying = value flatMap { v => Option[M](db.findById[M](v)) }
+        __underlying
+      }
+    }
+  }
+
+  def set(m: M) = __underlying = Some(m)
 
   // Map function to be able to use `for`
   def map[B](f: M => B)(implicit db: SSQLiteOpenHelper) =

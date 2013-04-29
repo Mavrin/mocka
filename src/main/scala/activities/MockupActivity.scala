@@ -16,13 +16,12 @@ import scala.concurrent._
 import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
 
-import SSQLiteOpenHelper.Implicits._
-
 import org.scaloid.common._
 
 class MockupActivity extends SActivity with TypedActivity {
   import MockupActivity._
   import ActivityHelpers._
+  import SCursor.Implicits._
 
   // Image cache
   lazy implicit val lruImages = new SLruCache[String, Bitmap](15)
@@ -79,7 +78,14 @@ class MockupActivity extends SActivity with TypedActivity {
     }
 
     screenView onSelect {
-      (x: Float, y: Float) => { addTransition(0, x, y, 50.f) }
+      (x: Float, y: Float) => {
+        current_state match {
+          case STATE_EDIT => addTransition(0, x, y, 50.f)
+          case STATE_SHOW => {
+          }
+          case _ => ()
+        }
+      }
     }
 
     // Set the list adapter
@@ -87,8 +93,7 @@ class MockupActivity extends SActivity with TypedActivity {
     listView setAdapter adapter
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
-        val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
-        user_showImage (cursor.as[MockupImage])
+        user_showImage(parent.get[MockupImage](position))
       }
     }
 
@@ -130,8 +135,7 @@ class MockupActivity extends SActivity with TypedActivity {
           case MENU_REMOVE => reloadAfter { removeImage(info.position) }
           case MENU_EDIT_TITLE => {
             // Currently selected mockup
-            val cursor = (listView getItemAtPosition info.position)
-            val mi = cursor.asInstanceOf[Cursor].as[MockupImage]
+            val mi = listView.get[MockupImage](info.position)
 
             for (t <- mi.image_title) InputDialog.show("Edit title", t) {
               (s: String) => {
@@ -220,11 +224,7 @@ class MockupActivity extends SActivity with TypedActivity {
 
   // Show a mockup image from the adapter ID
   def user_showImageId(i: Int) = {
-    // Mockup screen at ID `i`
-    val cursor = (listView getItemAtPosition i).asInstanceOf[Cursor]
-
-    // Show it
-    user_showImage(cursor.as[MockupImage])
+    user_showImage(listView.get[MockupImage](i))
   }
 
   // Toggle the state between Edition and Slideshow
@@ -268,11 +268,7 @@ class MockupActivity extends SActivity with TypedActivity {
   }
 
   def removeImage(position: Int) = {
-    // Currently selected mockup
-    val cursor = (listView getItemAtPosition position).asInstanceOf[Cursor]
-
-    // Remove the mockup image if the cursor is not null
-    future { cursor.as[MockupImage].remove }
+    future { listView.get[MockupImage](position).remove }
   }
 
   def saveTitle = {

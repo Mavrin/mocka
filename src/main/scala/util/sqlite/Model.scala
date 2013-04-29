@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.database.Cursor
 
 import scala.collection.mutable.MutableList
+import scala.reflect.{ClassTag, classTag}
 
 trait Model {
 
@@ -66,13 +67,15 @@ trait Model {
 
   // Fill a ContentValues object with the model
   def >>(cv: ContentValues) = for (f <- fields) f >> cv
-
-  // Returns a map of the values inside the fields
-  def asMap = fields.flatMap(f =>
-    f.value match {
-      case Some(v) => Some(f.sqlName, v)
-      case None => None
-    }
-  ).toMap
 }
 
+object Model {
+  def create[T <: Model : ClassTag]: T =
+    classTag[T].runtimeClass.newInstance.asInstanceOf[T]
+
+  def tableName[M <: Model : ClassTag] =
+    create[M].tableName
+
+  def fields[M <: Model : ClassTag] =
+    create[M].fields
+}

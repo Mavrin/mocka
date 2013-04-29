@@ -135,7 +135,7 @@ class MockupActivity extends SActivity with TypedActivity {
           case MENU_REMOVE => reloadAfter { removeImage(info.position) }
           case MENU_EDIT_TITLE => {
             // Currently selected mockup
-            val mi = listView.get[MockupImage](info.position)
+            val mi: MockupImage = listView.get[MockupImage](info.position)
 
             for (t <- mi.image_title) InputDialog.show("Edit title", t) {
               (s: String) => {
@@ -295,7 +295,6 @@ class MockupActivity extends SActivity with TypedActivity {
       case Success(_) => reload
     }
   }
-
 
   // Reload the mockups
   def reload = {

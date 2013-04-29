@@ -88,7 +88,7 @@ class MockupActivity extends SActivity with TypedActivity {
     listView onItemClick {
       (parent: AdapterView[_], view: View, position: Int, id: Long) => {
         val cursor = (parent getItemAtPosition position).asInstanceOf[Cursor]
-        showImage (cursor.as[MockupImage])
+        user_showImage (cursor.as[MockupImage])
       }
     }
 
@@ -179,8 +179,8 @@ class MockupActivity extends SActivity with TypedActivity {
 
   override def onOptionsItemSelected (item: MenuItem): Boolean = {
     item.getItemId match {
-      case R.id.ui_new => selectImage
-      case R.id.ui_play => startMockup
+      case R.id.ui_new => user_selectImage
+      case R.id.ui_play => user_toggleState
       case android.R.id.home => finish
     }
 
@@ -191,7 +191,7 @@ class MockupActivity extends SActivity with TypedActivity {
    * Available actions *
    *********************/
 
-  def selectImage {
+  def user_selectImage {
     // Create an intent showing the gallery
     val intent = new Intent
     intent setType "image/*"
@@ -199,6 +199,37 @@ class MockupActivity extends SActivity with TypedActivity {
 
     // Start the intent
     startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE)
+  }
+
+  // Show a mockup image
+  def user_showImage(m: MockupImage) = {
+    for (fimg <- m.image; img <- fimg;
+         id <- m.id.value) runOnUiThread {
+
+      // Set the current image
+      screenView setImageBitmap img
+      current_image = Some(m)
+
+      // Flip to the image viewer if necessary
+      if (flipper.getDisplayedChild == 0) {
+        flipper.showNext
+        getActionBar.hide
+      }
+    }
+  }
+
+  // Show a mockup image from the adapter ID
+  def user_showImageId(i: Int) = {
+    // Mockup screen at ID `i`
+    val cursor = (listView getItemAtPosition i).asInstanceOf[Cursor]
+
+    // Show it
+    user_showImage(cursor.as[MockupImage])
+  }
+
+  // Toggle the state between Edition and Slideshow
+  def user_toggleState = {
+    current_state = if (current_state == STATE_EDIT) STATE_SHOW else STATE_EDIT
   }
 
   def addTransition(to: Long, x: Float, y: Float, size: Float) = {
@@ -266,38 +297,6 @@ class MockupActivity extends SActivity with TypedActivity {
     f onComplete {
       case Failure(f) => f.printStackTrace; reload
       case Success(_) => reload
-    }
-  }
-
-  // Show a mockup image
-  def showImage(m: MockupImage) = {
-    for (fimg <- m.image; img <- fimg;
-         id <- m.id.value) runOnUiThread {
-
-      // Set the current image
-      screenView setImageBitmap img
-      current_image = Some(m)
-
-      // Flip to the image viewer if necessary
-      if (flipper.getDisplayedChild == 0) {
-        flipper.showNext
-        getActionBar.hide
-      }
-    }
-  }
-
-  // Start showing off a mockup
-  def startMockup = {
-    if (adapter.getCount > 0) {
-      // Set the state to "show"
-      current_state = STATE_SHOW
-
-      // Retrieve the first image
-      val img = (adapter getItem 0).asInstanceOf[Cursor]
-      val mimg = img.as[MockupImage]
-
-      // Show it
-      showImage(mimg)
     }
   }
 

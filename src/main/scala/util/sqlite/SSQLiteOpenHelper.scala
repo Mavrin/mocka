@@ -55,13 +55,18 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     // Create a dummy object with empty field
     val dummy = Model.create[M]
     val table = dummy.tableName
-    val fieldOpt = dummy.fields filter { fields contains _ } map { _.sqlName } toArray
+
+    // Find the fields we want
+    val availableFields = dummy.fields map { _.sqlName }
+    val usedFields =
+      if (fields == null) null
+      else fields filter { availableFields contains _ }
 
     // Execute query
     SCursor[M](ro.query(
       true,
       dummy.tableName,
-      fieldOpt,
+      usedFields,
       selection,
       selectionArgs,
       null,

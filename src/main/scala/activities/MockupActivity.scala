@@ -139,8 +139,7 @@ class MockupActivity extends SActivity with TypedActivity {
 
             for (t <- mi.image_title) InputDialog.show("Edit title", t) {
               (s: String) => {
-                mi.image_title := s
-                reloadAfter { future { mi.save } }
+                reloadAfter { future { mi.image_title(s).save } }
               }
             }
           }
@@ -240,16 +239,16 @@ class MockupActivity extends SActivity with TypedActivity {
          id <- i.id) {
 
       // Create the transition
-      val v = new MockupTransition
-      v.mockup_id := mockup_id
-      v.image_from := id
-      v.image_to := to
-      v.x := x
-      v.y := y
-      v.size := size
-
-      // Saave the transition
-      future { v.save }
+      future (
+        (new MockupTransition)
+        .mockup_id(mockup_id)
+        .image_from(id)
+        .image_to(to)
+        .x(x)
+        .y(y)
+        .size(size)
+        .save
+      )
     }
   }
 
@@ -258,13 +257,13 @@ class MockupActivity extends SActivity with TypedActivity {
     info(s"Creating new mockup image with URI $uri")
 
     // Create a new mockup image
-    val mockupimage = new MockupImage
-    mockupimage.mockup_id := mockup_id
-    mockupimage.image_uri := uri
-    mockupimage.image_title := "New screen"
-
-    // Save the mockup
-    future { mockupimage.save }
+    future (
+      (new MockupImage)
+      .mockup_id(mockup_id)
+      .image_uri(uri)
+      .image_title("New screen")
+      .save
+    )
   }
 
   def removeImage(position: Int) = {
@@ -275,18 +274,18 @@ class MockupActivity extends SActivity with TypedActivity {
     // Log what's happening
     info(s"Saving mockup $mockup_id")
 
-    // Create the mockup instance
-    val m = new Mockup
-    m.id := mockup_id
-    m.title := titleTextView.getText.toString
-
     // Dismiss keyboard
     titleTextView.clearFocus
     inputMethodManager.hideSoftInputFromWindow(
       titleTextView.getWindowToken, 0)
 
-    // Save the mockup
-    future { m.save }
+    // Create the mockup instance
+    future {
+      (new Mockup)
+      .id(mockup_id)
+      .title(titleTextView.getText.toString)
+      .save
+    }
   }
 
   def reloadAfter(f: => Future[_]) {

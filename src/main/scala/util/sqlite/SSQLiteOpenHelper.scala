@@ -50,12 +50,12 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
 
   // Run a query
   def query[M <: Model : ClassTag]
-  (fields: Array[Field[_]] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
+  (fields: Array[String] = null, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
 
     // Create a dummy object with empty field
     val dummy = Model.create[M]
     val table = dummy.tableName
-    val fieldOpt = if (fields != null) fields map { _.sqlName } else null
+    val fieldOpt = dummy.fields filter { fields contains _ } map { _.sqlName } toArray
 
     // Execute query
     SCursor[M](ro.query(

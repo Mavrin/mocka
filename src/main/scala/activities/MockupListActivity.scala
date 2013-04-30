@@ -162,15 +162,16 @@ class MockupListActivity extends SActivity with TypedActivity {
   // What to do when the user clicks on the option menu?
   override def onOptionsItemSelected (item: MenuItem): Boolean = item.getItemId match {
     case R.id.ui_new => {
-      // Create a new mockup
-      val mockup = new Mockup
-      mockup.title := "Hello, world"
 
       // Disable the menu item until we're done
       item setEnabled false
 
+      // Create a new mockup
+      val mockup = new Mockup title("Hello, world")
+
       // Save the mockup
       future { mockup.save } onComplete {
+
         case Failure(f) => f.printStackTrace
         case Success(id) => runOnUiThread {
           // Log info

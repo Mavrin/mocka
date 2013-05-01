@@ -241,7 +241,7 @@ class MockupActivity extends SActivity with TypedActivity {
       // Create the transition
       future (
         (new MockupTransition)
-        .mockup_id(mockup_id)
+        .mockup(mockup_id)
         .image_from(id)
         .image_to(to)
         .x(x)
@@ -259,7 +259,7 @@ class MockupActivity extends SActivity with TypedActivity {
     // Create a new mockup image
     future (
       (new MockupImage)
-      .mockup_id(mockup_id)
+      .mockup(mockup_id)
       .image_uri(uri)
       .image_title("New screen")
       .save

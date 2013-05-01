@@ -32,38 +32,18 @@ class MockupListActivity extends SActivity with TypedActivity {
 
   // List view adapter for mockup objects
   object adapter
-  extends SModelAdapter[MockupWithImage](R.layout.listitem_mockup) {
+  extends SModelAdapter[MockupImage](R.layout.listitem_mockup) {
 
-    override def query = {
-      // Find out the table names
-      val nMockup = Model.tableName[Mockup]
-      val nMockupImage = Model.tableName[MockupImage]
+    override def query =
+      db.firstJoin[MockupImage, Mockup]("mockup_id")
 
-      // We're doing an inner join to find the first image
-      val nJoinedTableName =
-        s"$nMockup m LEFT OUTER JOIN $nMockupImage mi ON m._id = mi.mockup_id"
-
-      // Run the query
-      SCursor[MockupWithImage](db.ro.query(
-        true,
-        nJoinedTableName,
-        Array("*", "m._id as _id"), // Necessary to be able to see _id
-        null,
-        null,
-        "_id",                      // Group by m._id
-        null,
-        null,
-        null
-      ))
-    }
-
-    def update(v: View, context: Context, m: MockupWithImage) {
+    def update(v: View, context: Context, m: MockupImage) {
       // Find the text view
       val vTitle = v.findViewById(R.id.title).asInstanceOf[TextView]
       val vImage = v.findViewById(R.id.preview).asInstanceOf[AsyncImageView]
 
       // Set the title and image
-      for (title <- m.title) vTitle setText title
+      for (mm <- m.mockup.get; title <- mm.title) vTitle setText title
       for (uri <- m.image_uri) vImage setImageUri uri
     }
   }
@@ -82,7 +62,7 @@ class MockupListActivity extends SActivity with TypedActivity {
   }
 
   // Show the mockup activity
-  def showMockup(m: _Mockup) = {
+  def showMockup(m: Mockup) = {
     // Start the activity
     val intent = SIntent[MockupActivity]
     for (id <- m.id.value) intent.putExtra(MockupActivity.MOCKUP_ID, id)
@@ -136,7 +116,7 @@ class MockupListActivity extends SActivity with TypedActivity {
 
     // Run the action
     item.getItemId match {
-      case 0 => model.remove; reload; true
+      case 0 => { model.remove; reload; true }
       case _ => false
     }
   }

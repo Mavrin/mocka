@@ -9,13 +9,13 @@ import org.scaloid.common._
 import android.graphics.Bitmap
 import BitmapHelpers._
 
-trait _Mockup extends Model {
+class Mockup extends Model {
   val title = StringField("title")
 }
 
-trait _MockupImage extends Model {
+class MockupImage extends Model {
 
-  val mockup_id = ForeignField[Mockup]("mockup_id")
+  val mockup = ForeignField[Mockup]("mockup_id")
   val image_title = StringField("image_title")
   val image_uri = StringField("image_uri")
 
@@ -26,8 +26,8 @@ trait _MockupImage extends Model {
       yield lru(uri, loadBitmap(uri))
 }
 
-trait _MockupTransition extends Model {
-  val mockup_id = ForeignField[Mockup]("mockup_id")
+class MockupTransition extends Model {
+  val mockup = ForeignField[Mockup]("mockup_id")
   val image_from = ForeignField[MockupImage]("image_from")
   val image_to = ForeignField[MockupImage]("image_to")
   val x = FloatField("x")
@@ -35,14 +35,8 @@ trait _MockupTransition extends Model {
   val size = FloatField("size")
 }
 
-class Mockup extends _Mockup
-class MockupImage extends _MockupImage
-class MockupTransition extends _MockupTransition
-class MockupWithImage extends _Mockup with _MockupImage
-
 class MockupOpenHelper(implicit ctx: Context)
 extends SSQLiteOpenHelper("mockups", 1) {
-
 
   // Create the database
   override def onCreate(db: SQLiteDatabase) {

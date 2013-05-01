@@ -2,29 +2,44 @@ package com.github.fxthomas.mocka
 
 import android.content.ContentValues
 import android.database.Cursor
+import android.util.Log
 
 import scala.collection.mutable.MutableList
 import scala.reflect.{ClassTag, classTag}
 
-trait Model {
-  // Current implicit model
-  implicit protected val model: this.type = this
+trait BaseModel {
+  def <<(c: Cursor): this.type
+  def >>(cv: ContentValues)
+}
 
+trait Model extends BaseModel {
   abstract class Field[T](val sqlName: String, val sqlType: String) {
     // Field value, if exists
     var value: Option[T] = None
 
+    // Long SQL name (for disambiguation)
+    val sqlFullName = Model.this.tableName + "_" + sqlName
+
     // Update model
-    model.fields += this
+    Model.this.fields += this
 
     // Store something inside the field
-    def apply(v: T): Model.this.type = { value = Some(v); model }
+    def apply(v: T): Model.this.type = { value = Some(v); Model.this }
 
     def clear = { value = None }
 
     // Custom inclusion check for cursors
     protected def inCursor (c: Cursor) = {
-      try { Some(c.getColumnIndexOrThrow(sqlName)) }
+      try { Some(c.getColumnIndexOrThrow(sqlFullName)) }
+      catch { case _: IllegalArgumentException => {
+        try { Some(c.getColumnIndexOrThrow(sqlName)) }
+        catch { case _: IllegalArgumentException => None }
+      }}
+    }
+
+    // Check for custom field name
+    protected def inCursor (c: Cursor, fieldName: String) = {
+      try { Some(c.getColumnIndexOrThrow(fieldName)) }
       catch { case _: IllegalArgumentException => None }
     }
 
@@ -43,16 +58,10 @@ trait Model {
     // Put a value inside the ContentValues object
     protected def toContentValues (c: ContentValues, cid: String, v: T)
 
-    // Store something inside the field from a ContentValues object
-    def <<(cv: ContentValues) = {
-      if (inContentValues(cv)) this(fromContentValues(cv, sqlName))
-      model
-    }
-
     // Store something from a cursor
     def <<(c: Cursor) = {
       for (cid <- inCursor(c)) this(fromCursor(c, cid))
-      model
+      Model.this
     }
 
     // Store the field value inside the ContentValues object, if exists
@@ -101,6 +110,7 @@ trait Model {
     override def toContentValues(c: ContentValues, cid: String, v: java.lang.Long) = c.put(cid, v: java.lang.Long)
 
     protected var __underlying: Option[M] = None
+    protected val __underlyingTableName = Model.create[M].tableName
 
     def get(implicit db: SSQLiteOpenHelper): Option[M] = {
       __underlying match {
@@ -113,6 +123,15 @@ trait Model {
     }
 
     def set(m: M) = __underlying = Some(m)
+
+    // Store something from a cursor
+    override def <<(c: Cursor) = {
+      for (cid <- inCursor(c)) this(fromCursor(c, cid))
+      for (cid <- inCursor(c, __underlyingTableName + "__id"))
+        __underlying = Some((Model.create[M] << c).id(fromCursor(c, cid)))
+
+      Model.this
+    }
 
     // Map function to be able to use `for`
     def map[B](f: M => B)(implicit db: SSQLiteOpenHelper) =
@@ -149,14 +168,14 @@ trait Model {
     id.value match {
       case Some(i) => {
         // Update the element
-        db.rw.update(tableName, cv, "_id = ?", Array(i.toString))
+        db.rw.update(tableName, cv, s"$tableName._id = ?", Array(i.toString))
 
         // Return the ID
         return i
       }
       case None => {
         // Try to insert the element
-        val newid = db.rw.insert(tableName, "_id", cv)
+        val newid = db.rw.insert(tableName, "$tableName._id", cv)
 
         // If it fails, say something, else update the ID
         if (newid >= 0) id(newid)
@@ -170,21 +189,21 @@ trait Model {
 
   def remove(implicit db: SSQLiteOpenHelper) = {
     for (i <- id)
-      db.rw.delete(tableName, "_id = ?", Array(i.toString))
+      db.rw.delete(tableName, s"$tableName._id = ?", Array(i.toString))
   }
 
   // Fill a model from a Cursor
-  def <<(c: Cursor): this.type = {
+  override def <<(c: Cursor): this.type = {
     for (f <- fields) f << c
     this
   }
 
   // Fill a ContentValues object with the model
-  def >>(cv: ContentValues) = for (f <- fields) f >> cv
+  override def >>(cv: ContentValues) = for (f <- fields) f >> cv
 }
 
 object Model {
-  def create[T <: Model : ClassTag]: T =
+  def create[T <: BaseModel : ClassTag]: T =
     classTag[T].runtimeClass.newInstance.asInstanceOf[T]
 
   def tableName[M <: Model : ClassTag] =

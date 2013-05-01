@@ -59,7 +59,7 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
     // Find the fields we want
     val availableFields = dummy.fields map { _.sqlName }
     val usedFields =
-      if (fields == null) null
+      if (fields == null) Array("*", s"_id AS ${table}__id")
       else fields filter { availableFields contains _ }
 
     // Execute query
@@ -70,6 +70,34 @@ extends SQLiteOpenHelper(ctx, name, factory, version, errorHandler) {
       selection,
       selectionArgs,
       null,
+      null,
+      orderBy,
+      limit
+    ))
+  }
+
+  def firstJoin[M1 <: Model : ClassTag, M2 <: Model : ClassTag]
+  (joinField: String, selection: String = null, selectionArgs: Array[String] = null, orderBy: String = null, limit: String = null) = {
+
+    // Create a dummy object with empty field
+    val d1 = Model.create[M1]
+    val d2 = Model.create[M2]
+    val t1 = d1.tableName
+    val t2 = d2.tableName
+
+    // Find the fields we want
+    val f1 = d1.fields map { f => t1 + "." + f.sqlName + " as " + f.sqlFullName }
+    val f2 = d2.fields map { f => t2 + "." + f.sqlName + " as " + f.sqlFullName }
+    val fields = (f1 ++ f2 ++ List(s"$t2._id AS _id")).toArray
+
+    // Execute query
+    SCursor[M1](ro.query(
+      true,
+      s"$t2 LEFT OUTER JOIN $t1 ON $t2._id = $t1.$joinField",
+      fields,
+      selection,
+      selectionArgs,
+      s"${t2}__id",
       null,
       orderBy,
       limit

@@ -15,7 +15,7 @@ import SCursor.Implicits._
 
 import org.scaloid.common._
 
-abstract class SModelAdapter[T <: Model : ClassTag]
+abstract class SModelAdapter[T <: BaseModel : ClassTag]
   (res: Int)
   (implicit ctx: Context, exc: ExecutionContext)
 extends CursorAdapter(ctx, null, 0) {

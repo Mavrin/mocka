@@ -8,7 +8,7 @@ import scala.collection.GenTraversableOnce
 import scala.collection.mutable.ListBuffer
 import scala.reflect.{ClassTag,classTag}
 
-class SCursor[M <: Model : ClassTag](val cursor: Cursor) {
+class SCursor[M <: BaseModel : ClassTag](val cursor: Cursor) {
   import SCursor.Implicits._
 
   var __list = List[M]()
@@ -47,21 +47,21 @@ class SCursor[M <: Model : ClassTag](val cursor: Cursor) {
 object SCursor {
   object Implicits {
     @inline implicit def scursor2cursor(c: SCursor[_]) = c.cursor
-    @inline implicit def scursor2model[M <: Model : ClassTag]
+    @inline implicit def scursor2model[M <: BaseModel : ClassTag]
       (c: SCursor[M]): M = c.get
 
-    implicit def scursor2list[M <: Model : ClassTag]
+    implicit def scursor2list[M <: BaseModel : ClassTag]
       (c: SCursor[M]): List[M] = c.toList
 
     implicit class AsCursor(val c: Cursor) extends AnyVal {
-      def as[M <: Model : ClassTag] = Model.create[M] << c
+      def as[M <: BaseModel : ClassTag] = Model.create[M] << c
     }
 
     implicit class SCursorAdapterView(val l: AdapterView[_]) extends AnyVal {
-      def get[M <: Model : ClassTag](position: Int): SCursor[M] =
+      def get[M <: BaseModel : ClassTag](position: Int): SCursor[M] =
         return SCursor[M]((l getItemAtPosition position).asInstanceOf[Cursor])
     }
   }
 
-  def apply[M <: Model : ClassTag](cursor: Cursor) = new SCursor[M](cursor)
+  def apply[M <: BaseModel : ClassTag](cursor: Cursor) = new SCursor[M](cursor)
 }
